@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from '@/lib/processing/embed'
 import { chunkText } from '@/lib/processing/chunk'
+import { parseDocument } from '@/lib/processing/parse'
 
 export async function POST(request: NextRequest) {
     try {
@@ -50,8 +51,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to download file' }, { status: 500 })
         }
 
-        // Extract text (for now, only supports plain text)
-        const text = await fileData.text()
+        // Parse document (supports PDF, DOCX, TXT, MD)
+        const buffer = Buffer.from(await fileData.arrayBuffer())
+        const { text, metadata } = await parseDocument(
+            buffer,
+            document.mime_type || '',
+            document.filename || ''
+        )
 
         // Chunk the text
         const chunks = chunkText(text, { chunkSize: 1000, chunkOverlap: 200 })
