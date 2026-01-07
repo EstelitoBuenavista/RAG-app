@@ -17,6 +17,14 @@ interface DocumentInfo {
     filename: string
 }
 
+interface NumberedSource {
+    number: number
+    document_id: string
+    filename: string
+    content: string
+    similarity: number
+}
+
 export async function POST(request: NextRequest) {
     try {
         const supabase = await createClient()
@@ -43,7 +51,6 @@ export async function POST(request: NextRequest) {
         const hasDocuments = (docCount ?? 0) > 0
 
         let matches: MatchResult[] = []
-        let context = ''
 
         if (hasDocuments) {
             // Generate embedding for the query
@@ -63,9 +70,6 @@ export async function POST(request: NextRequest) {
             } else {
                 matches = matchData || []
             }
-
-            // Build context from matched chunks
-            context = matches.map((m: MatchResult) => m.content).join('\n\n')
         }
 
         // Get document filenames for sources
@@ -86,10 +90,23 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Build numbered sources for citations
+        const numberedSources: NumberedSource[] = matches.map((m, index) => ({
+            number: index + 1,
+            document_id: m.document_id,
+            filename: documentMap[m.document_id] || 'Unknown document',
+            content: m.content,
+            similarity: m.similarity
+        }))
+
+        // Build context with numbered references
+        const numberedContext = numberedSources
+            .map(s => `[Source ${s.number}] (${s.filename}):\n${s.content}`)
+            .join('\n\n---\n\n')
+
         // Build conversation history for context
         let historyContext = ''
         if (conversationHistory && conversationHistory.length > 0) {
-            // Take last 5 exchanges for context
             const recentHistory = conversationHistory.slice(-10)
             historyContext = recentHistory
                 .map((msg: { role: string; content: string }) =>
@@ -103,26 +120,29 @@ export async function POST(request: NextRequest) {
 
         let prompt: string
 
-        if (hasDocuments && context) {
+        if (hasDocuments && numberedSources.length > 0) {
             prompt = `You are a strict document-based Q&A assistant. You MUST follow these rules:
 
 CRITICAL RULES:
-1. ONLY answer using information explicitly stated in the provided document context
+1. ONLY answer using information explicitly stated in the provided document sources
 2. Do NOT use any external knowledge, prior training, or assumptions
-3. If the answer is not found in the context, say: "I could not find information about this in your documents."
-4. Do NOT make inferences beyond what is directly stated
-5. Quote or paraphrase directly from the documents when possible
-6. If only partial information is available, state what you found and note what's missing
+3. ALWAYS cite your sources using the format [1], [2], etc. when referencing information
+4. Each claim or piece of information MUST have a citation
+5. If the answer is not found in the sources, say: "I could not find information about this in your documents."
+6. If only partial information is available, cite what you found and note what's missing
+
+CITATION FORMAT:
+- Use [1], [2], [3] etc. to reference sources inline
+- Place citations immediately after the relevant statement
+- You can cite multiple sources for one statement like [1][2]
 
 ${historyContext ? `Previous conversation:\n${historyContext}\n\n` : ''}
-DOCUMENT CONTEXT:
----
-${context}
----
+DOCUMENT SOURCES:
+${numberedContext}
 
 USER QUESTION: ${message}
 
-Provide an answer based STRICTLY on the document context above. If the information is not in the documents, say so clearly:`
+Provide an answer with inline citations [1], [2], etc. based STRICTLY on the sources above:`
         } else if (hasDocuments) {
             prompt = `You are a document-based Q&A assistant. The user has uploaded documents, but no relevant passages were found matching their question.
 
@@ -150,17 +170,9 @@ Response:`
         const result = await model.generateContent(prompt)
         const response = result.response.text()
 
-        // Build sources with actual filenames
-        const sources = matches.map((m: MatchResult) => ({
-            document_id: m.document_id,
-            filename: documentMap[m.document_id] || 'Unknown document',
-            chunk: m.content.length > 150 ? m.content.substring(0, 150) + '...' : m.content,
-            similarity: m.similarity
-        }))
-
         return NextResponse.json({
             response,
-            sources,
+            sources: numberedSources,
             hasDocuments
         })
 
