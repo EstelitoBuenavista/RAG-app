@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Generate response using Gemini
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
         let prompt: string
 

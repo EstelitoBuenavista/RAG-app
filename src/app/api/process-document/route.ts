@@ -89,8 +89,9 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         console.error('Processing error:', error)
+        const errorMessage = error instanceof Error ? error.message : 'Processing failed'
         return NextResponse.json(
-            { error: 'Processing failed' },
+            { error: errorMessage },
             { status: 500 }
         )
     }

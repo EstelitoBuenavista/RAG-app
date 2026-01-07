@@ -1,5 +1,3 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require('pdf-parse')
 import mammoth from 'mammoth'
 
 export interface ParseResult {
@@ -52,10 +50,14 @@ export async function parseDocument(
 }
 
 /**
- * Parse PDF file
+ * Parse PDF file using pdf-parse v1 API
  */
 async function parsePDF(buffer: Buffer): Promise<ParseResult> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require('pdf-parse')
+
     try {
+        // v1 API - just pass the buffer directly
         const data = await pdfParse(buffer)
 
         return {

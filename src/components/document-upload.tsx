@@ -105,8 +105,15 @@ export function DocumentUpload() {
                     )
                 )
             } else {
-                const errorData = await processResponse.json()
-                throw new Error(`Processing error: ${errorData.error || 'Unknown error'}`)
+                let errorMessage = 'Processing failed'
+                try {
+                    const errorData = await processResponse.json()
+                    errorMessage = errorData.error || errorMessage
+                } catch {
+                    // Response wasn't JSON
+                    errorMessage = `Server error (${processResponse.status})`
+                }
+                throw new Error(`Processing error: ${errorMessage}`)
             }
 
             return {
