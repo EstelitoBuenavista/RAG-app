@@ -51,12 +51,21 @@ export function DocumentUpload() {
                 .from('documents')
                 .upload(storagePath, file)
 
-            if (uploadError) throw uploadError
+            if (uploadError) {
+                throw new Error(`Storage error: ${uploadError.message}`)
+            }
+
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                throw new Error('Not authenticated')
+            }
 
             // 2. Create database record
             const { data: document, error: dbError } = await supabase
                 .from('documents')
                 .insert({
+                    user_id: user.id,
                     filename: file.name,
                     storage_path: storagePath,
                     file_size: file.size,
@@ -66,7 +75,9 @@ export function DocumentUpload() {
                 .select()
                 .single()
 
-            if (dbError) throw dbError
+            if (dbError) {
+                throw new Error(`Database error: ${dbError.message}`)
+            }
 
             // Update with real ID and status
             setUploadedFiles(prev =>
@@ -94,7 +105,8 @@ export function DocumentUpload() {
                     )
                 )
             } else {
-                throw new Error('Processing failed')
+                const errorData = await processResponse.json()
+                throw new Error(`Processing error: ${errorData.error || 'Unknown error'}`)
             }
 
             return {
