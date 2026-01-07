@@ -40,20 +40,47 @@ export function ChatInterface() {
         setInput('')
         setIsLoading(true)
 
-        // Simulate AI response - replace with actual API call
-        setTimeout(() => {
-            const assistantMessage: Message = {
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userMessage.content }),
+            })
+
+            const data = await response.json()
+
+            if (response.ok) {
+                const assistantMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: data.response,
+                    sources: data.sources?.map((s: { document_id: string; chunk: string }) => ({
+                        filename: s.document_id,
+                        chunk: s.chunk
+                    })),
+                    timestamp: new Date(),
+                }
+                setMessages((prev) => [...prev, assistantMessage])
+            } else {
+                const errorMessage: Message = {
+                    id: (Date.now() + 1).toString(),
+                    role: 'assistant',
+                    content: `Error: ${data.error || 'Failed to get response'}`,
+                    timestamp: new Date(),
+                }
+                setMessages((prev) => [...prev, errorMessage])
+            }
+        } catch {
+            const errorMessage: Message = {
                 id: (Date.now() + 1).toString(),
                 role: 'assistant',
-                content: 'This is a placeholder response. Connect your RAG backend to get intelligent answers from your documents.',
-                sources: [
-                    { filename: 'example.pdf', chunk: 'Sample chunk from document...' }
-                ],
+                content: 'Error: Failed to connect to the server',
                 timestamp: new Date(),
             }
-            setMessages((prev) => [...prev, assistantMessage])
+            setMessages((prev) => [...prev, errorMessage])
+        } finally {
             setIsLoading(false)
-        }, 1000)
+        }
     }
 
     return (
@@ -79,8 +106,8 @@ export function ChatInterface() {
                             >
                                 <div
                                     className={`max-w-2xl ${message.role === 'user'
-                                            ? 'bg-white text-zinc-950'
-                                            : 'bg-zinc-900 border border-zinc-800'
+                                        ? 'bg-white text-zinc-950'
+                                        : 'bg-zinc-900 border border-zinc-800'
                                         } p-4`}
                                 >
                                     <p className="whitespace-pre-wrap">{message.content}</p>
