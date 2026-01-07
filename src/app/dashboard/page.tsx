@@ -21,9 +21,9 @@ export default async function DashboardPage() {
                     <div className="flex items-center space-x-6">
                         <div className="flex items-center space-x-3">
                             <div className="w-9 h-9 bg-white text-zinc-950 flex items-center justify-center font-bold text-lg">
-                                R
+                                I
                             </div>
-                            <span className="text-xl font-bold tracking-tight">RAG App</span>
+                            <span className="text-xl font-bold tracking-tight">Inkwell</span>
                         </div>
                         <nav className="flex items-center space-x-1">
                             <Link href="/dashboard">

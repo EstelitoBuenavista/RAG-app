@@ -9,9 +9,9 @@ export default function Home() {
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-white text-zinc-950 flex items-center justify-center font-bold text-xl">
-              R
+              I
             </div>
-            <span className="text-xl font-bold tracking-tight">RAG App</span>
+            <span className="text-xl font-bold tracking-tight">Inkwell</span>
           </div>
           <div className="flex items-center space-x-3">
             <Link href="/login">

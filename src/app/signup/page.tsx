@@ -18,9 +18,9 @@ export default async function SignupPage({
                 {/* Logo */}
                 <div className="flex items-center space-x-3 mb-12">
                     <div className="w-10 h-10 bg-white text-zinc-950 flex items-center justify-center font-bold text-xl">
-                        R
+                        I
                     </div>
-                    <span className="text-xl font-bold tracking-tight">RAG App</span>
+                    <span className="text-xl font-bold tracking-tight">Inkwell</span>
                 </div>
 
                 {/* Title */}
