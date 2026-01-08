@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
@@ -13,6 +14,7 @@ interface UploadedFile {
 }
 
 export function DocumentUpload() {
+    const router = useRouter()
     const [isDragging, setIsDragging] = useState(false)
     const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
     const [error, setError] = useState<string | null>(null)
@@ -104,6 +106,8 @@ export function DocumentUpload() {
                             : f
                     )
                 )
+                // Refresh server components to update Quick Stats and document list
+                router.refresh()
             } else {
                 let errorMessage = 'Processing failed'
                 try {

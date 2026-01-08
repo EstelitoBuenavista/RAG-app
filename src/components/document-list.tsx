@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Trash2, FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
 
@@ -63,6 +64,7 @@ function getStatusText(status: Document['status']) {
 }
 
 export function DocumentList() {
+    const router = useRouter()
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(true)
     const [deleting, setDeleting] = useState<string | null>(null)
@@ -111,6 +113,8 @@ export function DocumentList() {
             }
 
             setDocuments([])
+            // Refresh server components to update Quick Stats
+            router.refresh()
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to clear documents')
         } finally {
@@ -135,8 +139,10 @@ export function DocumentList() {
 
             // Remove from local state
             setDocuments(docs => docs.filter(d => d.id !== documentId))
+            // Refresh server components to update Quick Stats
+            router.refresh()
         } catch (err) {
-            alert(err instanceof Error ? err.message : 'Failed to delete document')
+            setError(err instanceof Error ? err.message : 'Failed to delete document')
         } finally {
             setDeleting(null)
         }
