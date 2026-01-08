@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { signout } from '@/app/auth/actions'
 import { DocumentUpload } from '@/components/document-upload'
+import { DocumentList } from '@/components/document-list'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -11,6 +12,28 @@ export default async function DashboardPage() {
 
     if (!user) {
         redirect('/login')
+    }
+
+    // Fetch document count for this user
+    const { count: documentCount } = await supabase
+        .from('documents')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+
+    // Fetch embedding count for this user's documents
+    const { data: userDocIds } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('user_id', user.id)
+
+    let embeddingCount = 0
+    if (userDocIds && userDocIds.length > 0) {
+        const docIds = userDocIds.map(d => d.id)
+        const { count } = await supabase
+            .from('embeddings')
+            .select('*', { count: 'exact', head: true })
+            .in('document_id', docIds)
+        embeddingCount = count ?? 0
     }
 
     return (
@@ -73,15 +96,15 @@ export default async function DashboardPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-px bg-zinc-800">
                             <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">0</p>
+                                <p className="text-3xl font-bold">{documentCount ?? 0}</p>
                                 <p className="text-sm text-zinc-500 mt-1">Documents</p>
                             </div>
                             <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">0</p>
+                                <p className="text-3xl font-bold">{embeddingCount}</p>
                                 <p className="text-sm text-zinc-500 mt-1">Embeddings</p>
                             </div>
                             <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">0</p>
+                                <p className="text-3xl font-bold">—</p>
                                 <p className="text-sm text-zinc-500 mt-1">Queries</p>
                             </div>
                             <div className="bg-zinc-950 p-6">
@@ -90,6 +113,11 @@ export default async function DashboardPage() {
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Document List */}
+                <div className="mt-8">
+                    <DocumentList />
                 </div>
             </main>
         </div>
