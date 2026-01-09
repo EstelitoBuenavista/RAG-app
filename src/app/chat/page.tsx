@@ -14,7 +14,7 @@ export default async function ChatPage() {
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+        <div className="h-screen bg-zinc-950 text-white flex flex-col overflow-hidden">
             {/* Header */}
             <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
                 <div className="container mx-auto px-6 py-4 flex items-center justify-between">

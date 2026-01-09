@@ -19,12 +19,24 @@ interface Message {
     timestamp: Date
 }
 
+interface Chat {
+    id: string
+    title: string
+    created_at: string
+    updated_at: string
+}
+
 export function ChatInterface() {
     const [messages, setMessages] = useState<Message[]>([])
     const [input, setInput] = useState('')
     const [isLoading, setIsLoading] = useState(false)
+    const [isStreaming, setIsStreaming] = useState(false)
     const [selectedSource, setSelectedSource] = useState<Source | null>(null)
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [chatSidebarOpen, setChatSidebarOpen] = useState(true)
+    const [chats, setChats] = useState<Chat[]>([])
+    const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+    const [loadingChats, setLoadingChats] = useState(true)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
     const scrollToBottom = () => {
@@ -35,11 +47,73 @@ export function ChatInterface() {
         scrollToBottom()
     }, [messages])
 
-    // Get all sources from the last assistant message for citation lookup
-    const getSourceByNumber = useCallback((num: number): Source | undefined => {
-        const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant')
-        return lastAssistantMessage?.sources?.find(s => s.number === num)
-    }, [messages])
+    // Load chats on mount
+    useEffect(() => {
+        loadChats()
+    }, [])
+
+    const loadChats = async () => {
+        try {
+            setLoadingChats(true)
+            const response = await fetch('/api/chats')
+            if (response.ok) {
+                const data = await response.json()
+                setChats(data.chats || [])
+            }
+        } catch (error) {
+            console.error('Failed to load chats:', error)
+        } finally {
+            setLoadingChats(false)
+        }
+    }
+
+    const loadChat = async (chatId: string) => {
+        try {
+            const response = await fetch(`/api/chats/${chatId}`)
+            if (response.ok) {
+                const data = await response.json()
+                const loadedMessages: Message[] = data.messages.map((msg: {
+                    id: string
+                    role: 'user' | 'assistant'
+                    content: string
+                    sources?: Source[]
+                    created_at: string
+                }) => ({
+                    id: msg.id,
+                    role: msg.role,
+                    content: msg.content,
+                    sources: msg.sources,
+                    timestamp: new Date(msg.created_at)
+                }))
+                setMessages(loadedMessages)
+                setCurrentChatId(chatId)
+            }
+        } catch (error) {
+            console.error('Failed to load chat:', error)
+        }
+    }
+
+    const createNewChat = () => {
+        setMessages([])
+        setCurrentChatId(null)
+        setSelectedSource(null)
+        setSidebarOpen(false)
+    }
+
+    const deleteChat = async (chatId: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        try {
+            const response = await fetch(`/api/chats/${chatId}`, { method: 'DELETE' })
+            if (response.ok) {
+                setChats(prev => prev.filter(c => c.id !== chatId))
+                if (currentChatId === chatId) {
+                    createNewChat()
+                }
+            }
+        } catch (error) {
+            console.error('Failed to delete chat:', error)
+        }
+    }
 
     const handleCitationClick = (sourceNumber: number, msgSources?: Source[]) => {
         const source = msgSources?.find(s => s.number === sourceNumber)
@@ -97,8 +171,19 @@ export function ChatInterface() {
         setMessages((prev) => [...prev, userMessage])
         setInput('')
         setIsLoading(true)
+        setIsStreaming(true)
         setSidebarOpen(false)
         setSelectedSource(null)
+
+        // Create placeholder for streaming response
+        const assistantMessageId = (Date.now() + 1).toString()
+        const assistantMessage: Message = {
+            id: assistantMessageId,
+            role: 'assistant',
+            content: '',
+            timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, assistantMessage])
 
         try {
             const conversationHistory = messages.map(m => ({
@@ -111,51 +196,152 @@ export function ChatInterface() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     message: userMessage.content,
+                    chatId: currentChatId,
                     conversationHistory
                 }),
             })
 
-            const data = await response.json()
+            if (!response.ok) {
+                const errorData = await response.json()
+                setMessages(prev => prev.map(msg =>
+                    msg.id === assistantMessageId
+                        ? { ...msg, content: `Error: ${errorData.error || 'Failed to get response'}` }
+                        : msg
+                ))
+                return
+            }
 
-            if (response.ok) {
-                const assistantMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: data.response,
-                    sources: data.sources,
-                    timestamp: new Date(),
+            const reader = response.body?.getReader()
+            const decoder = new TextDecoder()
+            let sources: Source[] = []
+            let newChatId: string | null = null
+
+            if (reader) {
+                while (true) {
+                    const { done, value } = await reader.read()
+                    if (done) break
+
+                    const chunk = decoder.decode(value)
+                    const lines = chunk.split('\n')
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6))
+
+                                if (data.type === 'metadata') {
+                                    sources = data.sources || []
+                                    newChatId = data.chatId
+                                    if (!currentChatId && newChatId) {
+                                        setCurrentChatId(newChatId)
+                                    }
+                                } else if (data.type === 'chunk') {
+                                    setMessages(prev => prev.map(msg =>
+                                        msg.id === assistantMessageId
+                                            ? { ...msg, content: msg.content + data.text }
+                                            : msg
+                                    ))
+                                } else if (data.type === 'done') {
+                                    // Update with final sources
+                                    setMessages(prev => prev.map(msg =>
+                                        msg.id === assistantMessageId
+                                            ? { ...msg, sources }
+                                            : msg
+                                    ))
+                                    // Refresh chat list to show new chat
+                                    loadChats()
+                                } else if (data.type === 'error') {
+                                    setMessages(prev => prev.map(msg =>
+                                        msg.id === assistantMessageId
+                                            ? { ...msg, content: `Error: ${data.message}` }
+                                            : msg
+                                    ))
+                                }
+                            } catch {
+                                // Skip invalid JSON
+                            }
+                        }
+                    }
                 }
-                setMessages((prev) => [...prev, assistantMessage])
-            } else {
-                const errorMessage: Message = {
-                    id: (Date.now() + 1).toString(),
-                    role: 'assistant',
-                    content: `Error: ${data.error || 'Failed to get response'}`,
-                    timestamp: new Date(),
-                }
-                setMessages((prev) => [...prev, errorMessage])
             }
         } catch {
-            const errorMessage: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: 'Error: Failed to connect to the server. Please check your connection and try again.',
-                timestamp: new Date(),
-            }
-            setMessages((prev) => [...prev, errorMessage])
+            setMessages(prev => prev.map(msg =>
+                msg.id === assistantMessageId
+                    ? { ...msg, content: 'Error: Failed to connect to the server. Please check your connection and try again.' }
+                    : msg
+            ))
         } finally {
             setIsLoading(false)
+            setIsStreaming(false)
         }
-    }
-
-    const clearChat = () => {
-        setMessages([])
-        setSidebarOpen(false)
-        setSelectedSource(null)
     }
 
     return (
         <div className="flex h-full">
+            {/* Chat List Sidebar */}
+            <div className={`bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ${chatSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+                    <span className="text-sm font-medium text-zinc-400">CHATS</span>
+                    <Button
+                        variant="ghost"
+                        onClick={createNewChat}
+                        className="text-zinc-500 hover:text-white text-sm h-8 px-2"
+                        title="New Chat"
+                    >
+                        + New
+                    </Button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                    {loadingChats ? (
+                        <div className="p-4 text-zinc-500 text-sm">Loading...</div>
+                    ) : chats.length === 0 ? (
+                        <div className="p-4 text-zinc-500 text-sm">No chats yet</div>
+                    ) : (
+                        chats.map(chat => (
+                            <div
+                                key={chat.id}
+                                onClick={() => loadChat(chat.id)}
+                                className={`group p-3 border-b border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors ${currentChatId === chat.id ? 'bg-zinc-800' : ''}`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-zinc-300 truncate flex-1">{chat.title}</span>
+                                    <button
+                                        onClick={(e) => deleteChat(chat.id, e)}
+                                        className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 text-xs ml-2 transition-opacity"
+                                        title="Delete chat"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <div className="text-xs text-zinc-600 mt-1">
+                                    {new Date(chat.updated_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+                <div className="p-2 border-t border-zinc-800">
+                    <Button
+                        variant="ghost"
+                        onClick={() => setChatSidebarOpen(false)}
+                        className="w-full text-zinc-500 hover:text-white text-xs"
+                    >
+                        ← Hide Sidebar
+                    </Button>
+                </div>
+            </div>
+
+            {/* Toggle sidebar button when closed */}
+            {!chatSidebarOpen && (
+                <button
+                    onClick={() => setChatSidebarOpen(true)}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-zinc-800 text-zinc-400 hover:text-white p-2 border-r border-t border-b border-zinc-700 z-10"
+                    title="Show chats"
+                >
+                    →
+                </button>
+            )}
+
             {/* Main Chat Area */}
             <div className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? 'mr-96' : ''}`}>
                 {/* Header with clear button */}
@@ -166,10 +352,10 @@ export function ChatInterface() {
                         </span>
                         <Button
                             variant="ghost"
-                            onClick={clearChat}
+                            onClick={createNewChat}
                             className="text-zinc-500 hover:text-white text-sm"
                         >
-                            Clear Chat
+                            New Chat
                         </Button>
                     </div>
                 )}
@@ -177,8 +363,8 @@ export function ChatInterface() {
                 {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {messages.length === 0 ? (
-                        <div className="h-full flex items-center justify-center">
-                            <div className="text-center max-w-md space-y-4">
+                        <div className="h-full flex flex-col justify-end pb-8">
+                            <div className="text-center max-w-md mx-auto space-y-4">
                                 <div className="text-6xl mb-4">💬</div>
                                 <h2 className="text-2xl font-bold">Start a conversation</h2>
                                 <p className="text-zinc-500">
@@ -210,6 +396,9 @@ export function ChatInterface() {
                                                 ? renderMessageWithCitations(message.content, message.sources)
                                                 : message.content
                                             }
+                                            {isStreaming && message.role === 'assistant' && message.content === '' && (
+                                                <span className="inline-block w-2 h-4 bg-zinc-500 animate-pulse" />
+                                            )}
                                         </div>
 
                                         {message.sources && message.sources.length > 0 && (
@@ -223,8 +412,8 @@ export function ChatInterface() {
                                                             key={source.number}
                                                             onClick={() => handleCitationClick(source.number, message.sources)}
                                                             className={`text-xs px-2 py-1 border transition-colors ${selectedSource?.number === source.number
-                                                                    ? 'border-white bg-white text-zinc-950'
-                                                                    : 'border-zinc-700 hover:border-zinc-500 text-zinc-400'
+                                                                ? 'border-white bg-white text-zinc-950'
+                                                                : 'border-zinc-700 hover:border-zinc-500 text-zinc-400'
                                                                 }`}
                                                         >
                                                             [{source.number}] {source.filename}
@@ -236,7 +425,7 @@ export function ChatInterface() {
                                     </div>
                                 </div>
                             ))}
-                            {isLoading && (
+                            {isLoading && !isStreaming && (
                                 <div className="flex justify-start">
                                     <div className="bg-zinc-900 border border-zinc-800 p-4">
                                         <div className="flex items-center space-x-2">

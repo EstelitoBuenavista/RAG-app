@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from '@/lib/processing/embed'
 import { GoogleGenerativeAI } from '@google/generative-ai'
@@ -32,13 +32,53 @@ export async function POST(request: NextRequest) {
         // Verify user is authenticated
         const { data: { user }, error: authError } = await supabase.auth.getUser()
         if (authError || !user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            })
         }
 
-        const { message, conversationHistory } = await request.json()
+        const { message, chatId, conversationHistory } = await request.json()
 
         if (!message) {
-            return NextResponse.json({ error: 'Message required' }, { status: 400 })
+            return new Response(JSON.stringify({ error: 'Message required' }), {
+                status: 400,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        }
+
+        // Create or get chat
+        let currentChatId = chatId
+        if (!currentChatId) {
+            // Create new chat with title from first message
+            const title = message.length > 50 ? message.substring(0, 47) + '...' : message
+            const { data: newChat, error: chatError } = await supabase
+                .from('chats')
+                .insert({ user_id: user.id, title })
+                .select('id')
+                .single()
+
+            if (chatError) {
+                console.error('Chat creation error:', chatError)
+                return new Response(JSON.stringify({ error: 'Failed to create chat' }), {
+                    status: 500,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            currentChatId = newChat.id
+        }
+
+        // Save user message
+        const { error: userMsgError } = await supabase
+            .from('messages')
+            .insert({
+                chat_id: currentChatId,
+                role: 'user',
+                content: message
+            })
+
+        if (userMsgError) {
+            console.error('User message save error:', userMsgError)
         }
 
         // Check if user has any documents
@@ -167,20 +207,73 @@ USER QUESTION: ${message}
 Response:`
         }
 
-        const result = await model.generateContent(prompt)
-        const response = result.response.text()
+        // Create streaming response with SSE
+        const encoder = new TextEncoder()
 
-        return NextResponse.json({
-            response,
-            sources: numberedSources,
-            hasDocuments
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    // Send initial metadata
+                    const metadata = {
+                        type: 'metadata',
+                        chatId: currentChatId,
+                        sources: numberedSources,
+                        hasDocuments
+                    }
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(metadata)}\n\n`))
+
+                    // Stream the response
+                    const result = await model.generateContentStream(prompt)
+                    let fullResponse = ''
+
+                    for await (const chunk of result.stream) {
+                        const text = chunk.text()
+                        if (text) {
+                            fullResponse += text
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'chunk', text })}\n\n`))
+                        }
+                    }
+
+                    // Save assistant message after streaming completes
+                    await supabase
+                        .from('messages')
+                        .insert({
+                            chat_id: currentChatId,
+                            role: 'assistant',
+                            content: fullResponse,
+                            sources: numberedSources.length > 0 ? numberedSources : null
+                        })
+
+                    // Update chat timestamp
+                    await supabase
+                        .from('chats')
+                        .update({ updated_at: new Date().toISOString() })
+                        .eq('id', currentChatId)
+
+                    // Send done signal
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`))
+                    controller.close()
+                } catch (error) {
+                    console.error('Streaming error:', error)
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'error', message: 'Streaming failed' })}\n\n`))
+                    controller.close()
+                }
+            }
+        })
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive'
+            }
         })
 
     } catch (error) {
         console.error('Query error:', error)
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : 'Query failed' },
-            { status: 500 }
-        )
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Query failed' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+        })
     }
 }
