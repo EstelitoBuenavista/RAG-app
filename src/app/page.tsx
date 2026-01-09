@@ -1,7 +1,14 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { motion, fadeInUp, staggerContainer, staggerItem, useMotionVariants } from '@/lib/motion'
 
 export default function Home() {
+  const heroVariants = useMotionVariants(fadeInUp)
+  const containerVariants = useMotionVariants(staggerContainer)
+  const itemVariants = useMotionVariants(staggerItem)
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       {/* Navigation */}
@@ -30,28 +37,45 @@ export default function Home() {
 
       {/* Hero Section */}
       <main className="container mx-auto px-6 pt-32 pb-20">
-        <div className="max-w-4xl">
+        <motion.div
+          className="max-w-4xl"
+          initial="hidden"
+          animate="visible"
+          variants={heroVariants}
+        >
           {/* Badge */}
-          <div className="inline-block mb-8 px-3 py-1 border border-zinc-700 text-zinc-400 text-sm font-mono">
+          <motion.div
+            className="inline-block mb-8 px-3 py-1 border border-zinc-700 text-zinc-400 text-sm font-mono"
+            variants={heroVariants}
+          >
             AI-POWERED
-          </div>
+          </motion.div>
 
           {/* Heading */}
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tight leading-none mb-8">
+          <motion.h1
+            className="text-6xl md:text-8xl font-bold tracking-tight leading-none mb-8"
+            variants={heroVariants}
+          >
             Transform
             <br />
             Documents
             <br />
             <span className="text-zinc-500">Into Knowledge</span>
-          </h1>
+          </motion.h1>
 
           {/* Description */}
-          <p className="text-xl text-zinc-400 max-w-xl mb-12 leading-relaxed">
+          <motion.p
+            className="text-xl text-zinc-400 max-w-xl mb-12 leading-relaxed"
+            variants={heroVariants}
+          >
             Upload documents and get intelligent, context-aware answers using RAG technology.
-          </p>
+          </motion.p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-wrap gap-4">
+          <motion.div
+            className="flex flex-wrap gap-4"
+            variants={heroVariants}
+          >
             <Link href="/signup">
               <Button
                 size="lg"
@@ -69,34 +93,40 @@ export default function Home() {
                 Sign In
               </Button>
             </Link>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-800 mt-32 border border-zinc-800">
-          <div className="bg-zinc-950 p-8">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-800 mt-32 border border-zinc-800"
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+        >
+          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
             <div className="text-3xl mb-4">📄</div>
             <h3 className="text-lg font-bold mb-2">Document Upload</h3>
             <p className="text-zinc-500 text-sm">
               Upload PDFs, text files, and documents to build your knowledge base.
             </p>
-          </div>
-          <div className="bg-zinc-950 p-8">
+          </motion.div>
+          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
             <div className="text-3xl mb-4">🔍</div>
             <h3 className="text-lg font-bold mb-2">Smart Search</h3>
             <p className="text-zinc-500 text-sm">
               Find relevant information with AI-powered semantic search.
             </p>
-          </div>
-          <div className="bg-zinc-950 p-8">
+          </motion.div>
+          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
             <div className="text-3xl mb-4">💬</div>
             <h3 className="text-lg font-bold mb-2">RAG Queries</h3>
             <p className="text-zinc-500 text-sm">
               Ask questions and get answers grounded in your documents.
             </p>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </main>
     </div>
   )
 }
+

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Trash2, FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { motion, staggerContainer, staggerItem, useMotionVariants } from '@/lib/motion'
 
 interface Document {
     id: string
@@ -70,6 +71,8 @@ export function DocumentList() {
     const [deleting, setDeleting] = useState<string | null>(null)
     const [clearingAll, setClearingAll] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const containerVariants = useMotionVariants(staggerContainer)
+    const itemVariants = useMotionVariants(staggerItem)
 
     const fetchDocuments = async () => {
         try {
@@ -212,11 +215,17 @@ export function DocumentList() {
                     <p className="text-zinc-600 text-sm mt-1">Upload documents to get started</p>
                 </div>
             ) : (
-                <div className="divide-y divide-zinc-800">
+                <motion.div
+                    className="divide-y divide-zinc-800"
+                    initial="hidden"
+                    animate="visible"
+                    variants={containerVariants}
+                >
                     {documents.map((doc) => (
-                        <div
+                        <motion.div
                             key={doc.id}
                             className="p-4 flex items-center justify-between hover:bg-zinc-900/50 transition-colors"
+                            variants={itemVariants}
                         >
                             <div className="flex items-center gap-4 min-w-0 flex-1">
                                 <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center flex-shrink-0">
@@ -251,9 +260,9 @@ export function DocumentList() {
                                     <Trash2 className="w-4 h-4" />
                                 )}
                             </Button>
-                        </div>
+                        </motion.div>
                     ))}
-                </div>
+                </motion.div>
             )}
         </div>
     )

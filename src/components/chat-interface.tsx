@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
+import { motion, fadeInUp, useMotionVariants } from '@/lib/motion'
 
 interface Source {
     number: number
@@ -380,10 +381,13 @@ export function ChatInterface() {
                         </div>
                     ) : (
                         <>
-                            {messages.map((message) => (
-                                <div
+                            {messages.map((message, index) => (
+                                <motion.div
                                     key={message.id}
                                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25, delay: index * 0.05 }}
                                 >
                                     <div
                                         className={`max-w-2xl ${message.role === 'user'
@@ -423,7 +427,7 @@ export function ChatInterface() {
                                             </div>
                                         )}
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                             {isLoading && !isStreaming && (
                                 <div className="flex justify-start">
