@@ -692,47 +692,53 @@ export function ChatInterface() {
 
             {/* Source Sidebar */}
             <div
-                className={`fixed right-0 top-0 h-full w-96 bg-zinc-900 border-l border-zinc-800 transform transition-transform duration-300 z-40 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
+                className={`fixed right-0 top-[65px] h-[calc(100vh-65px)] w-96 bg-zinc-900 border-l border-zinc-800 transform transition-transform duration-300 z-40 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'
                     }`}
             >
                 {selectedSource && (
                     <div className="flex flex-col h-full">
                         {/* Sidebar Header */}
                         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-                            <div>
+                            <div className="flex-1 min-w-0 mr-4">
                                 <p className="text-sm text-zinc-500">SOURCE [{selectedSource.number}]</p>
                                 <p className="text-white font-medium truncate">{selectedSource.filename}</p>
                             </div>
-                            <Button
-                                variant="ghost"
-                                onClick={() => setSidebarOpen(false)}
-                                className="text-zinc-500 hover:text-white"
+                            <button
+                                onClick={() => {
+                                    setSidebarOpen(false)
+                                    setSelectedSource(null)
+                                }}
+                                className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors cursor-pointer flex-shrink-0"
+                                title="Close sidebar"
                             >
                                 ✕
-                            </Button>
+                            </button>
                         </div>
 
-                        {/* Similarity Score */}
-                        <div className="px-4 py-3 border-b border-zinc-800 bg-zinc-800/50">
-                            <div className="flex items-center justify-between text-sm">
-                                <span className="text-zinc-400">Relevance</span>
-                                <span className="text-white font-medium">
-                                    {Math.round(selectedSource.similarity * 100)}% match
-                                </span>
+                        {/* Scrollable Content */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {/* Similarity Score */}
+                            <div className="px-4 py-3 bg-zinc-800/50 border border-zinc-700">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-zinc-400">Relevance</span>
+                                    <span className="text-white font-medium">
+                                        {Math.round(selectedSource.similarity * 100)}% match
+                                    </span>
+                                </div>
+                                <div className="mt-2 h-1 bg-zinc-700 rounded">
+                                    <div
+                                        className="h-full bg-white rounded"
+                                        style={{ width: `${selectedSource.similarity * 100}%` }}
+                                    />
+                                </div>
                             </div>
-                            <div className="mt-2 h-1 bg-zinc-700 rounded">
-                                <div
-                                    className="h-full bg-white rounded"
-                                    style={{ width: `${selectedSource.similarity * 100}%` }}
-                                />
-                            </div>
-                        </div>
 
-                        {/* Source Content */}
-                        <div className="flex-1 overflow-y-auto p-4">
-                            <p className="text-xs text-zinc-500 mb-3">SOURCE TEXT</p>
-                            <div className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap bg-zinc-800 p-4 border border-zinc-700">
-                                {selectedSource.content}
+                            {/* Source Content */}
+                            <div>
+                                <p className="text-xs text-zinc-500 mb-3">SOURCE TEXT</p>
+                                <div className="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap bg-zinc-800 p-4 border border-zinc-700">
+                                    {selectedSource.content}
+                                </div>
                             </div>
                         </div>
                     </div>
