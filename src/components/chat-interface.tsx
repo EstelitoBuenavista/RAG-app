@@ -385,7 +385,7 @@ export function ChatInterface() {
                 {/* Messages */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                     {messages.length === 0 ? (
-                        <div className="h-full flex flex-col justify-end pb-8">
+                        <div className="h-full flex flex-col justify-center items-center">
                             <div className="text-center max-w-md mx-auto space-y-4">
                                 <div className="text-6xl mb-4">💬</div>
                                 <h2 className="text-2xl font-bold">Start a conversation</h2>
