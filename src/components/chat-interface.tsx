@@ -278,73 +278,94 @@ export function ChatInterface() {
     }
 
     return (
-        <div className="flex h-full">
+        <div className="flex h-full overflow-hidden">
             {/* Chat List Sidebar */}
-            <div className={`bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ${chatSidebarOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
-                <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
-                    <span className="text-sm font-medium text-zinc-400">CHATS</span>
-                    <Button
-                        variant="ghost"
-                        onClick={createNewChat}
-                        className="text-zinc-500 hover:text-white text-sm h-8 px-2"
-                        title="New Chat"
-                    >
-                        + New
-                    </Button>
-                </div>
-                <div className="flex-1 overflow-y-auto">
-                    {loadingChats ? (
-                        <div className="p-4 text-zinc-500 text-sm">Loading...</div>
-                    ) : chats.length === 0 ? (
-                        <div className="p-4 text-zinc-500 text-sm">No chats yet</div>
-                    ) : (
-                        chats.map(chat => (
-                            <div
-                                key={chat.id}
-                                onClick={() => loadChat(chat.id)}
-                                className={`group p-3 border-b border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors ${currentChatId === chat.id ? 'bg-zinc-800' : ''}`}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-zinc-300 truncate flex-1">{chat.title}</span>
-                                    <button
-                                        onClick={(e) => deleteChat(chat.id, e)}
-                                        className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-red-400 text-xs ml-2 transition-opacity"
-                                        title="Delete chat"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                                <div className="text-xs text-zinc-600 mt-1">
-                                    {new Date(chat.updated_at).toLocaleDateString()}
-                                </div>
+            <div className={`bg-zinc-900 border-r border-zinc-800 flex flex-col transition-all duration-300 ${chatSidebarOpen ? 'w-64' : 'w-12'}`}>
+                {/* Sidebar Header with Toggle */}
+                <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
+                    {chatSidebarOpen ? (
+                        <>
+                            <span className="text-sm font-medium text-zinc-400">CHATS</span>
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    variant="ghost"
+                                    onClick={createNewChat}
+                                    className="text-zinc-500 hover:text-white text-sm w-7 h-7 p-0"
+                                    title="New Chat"
+                                >
+                                    +
+                                </Button>
+                                <button
+                                    onClick={() => setChatSidebarOpen(false)}
+                                    className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                                    title="Collapse sidebar"
+                                >
+                                    ←
+                                </button>
                             </div>
-                        ))
+                        </>
+                    ) : (
+                        <button
+                            onClick={() => setChatSidebarOpen(true)}
+                            className="w-6 h-6 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="Expand sidebar"
+                        >
+                            →
+                        </button>
                     )}
                 </div>
-                <div className="p-2 border-t border-zinc-800">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setChatSidebarOpen(false)}
-                        className="w-full text-zinc-500 hover:text-white text-xs"
-                    >
-                        ← Hide Sidebar
-                    </Button>
-                </div>
+
+                {/* Chat List - only show when expanded */}
+                {chatSidebarOpen && (
+                    <>
+                        <div className="flex-1 overflow-y-auto">
+                            {loadingChats ? (
+                                <div className="p-4 text-zinc-500 text-sm">Loading...</div>
+                            ) : chats.length === 0 ? (
+                                <div className="p-4 text-zinc-500 text-sm">No chats yet</div>
+                            ) : (
+                                chats.map(chat => (
+                                    <div
+                                        key={chat.id}
+                                        onClick={() => loadChat(chat.id)}
+                                        className={`group p-3 border-b border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors ${currentChatId === chat.id ? 'bg-zinc-800' : ''}`}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm text-zinc-300 truncate flex-1">{chat.title}</span>
+                                            <button
+                                                onClick={(e) => deleteChat(chat.id, e)}
+                                                className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-400 text-xs ml-2 transition-opacity cursor-pointer hover:bg-zinc-700"
+                                                title="Delete chat"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                        <div className="text-xs text-zinc-600 mt-1">
+                                            {new Date(chat.updated_at).toLocaleDateString()}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* Collapsed state - show new chat icon */}
+                {!chatSidebarOpen && (
+                    <div className="flex-1 flex flex-col items-center pt-2">
+                        <button
+                            onClick={createNewChat}
+                            className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                            title="New Chat"
+                        >
+                            +
+                        </button>
+                    </div>
+                )}
             </div>
 
-            {/* Toggle sidebar button when closed */}
-            {!chatSidebarOpen && (
-                <button
-                    onClick={() => setChatSidebarOpen(true)}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 bg-zinc-800 text-zinc-400 hover:text-white p-2 border-r border-t border-b border-zinc-700 z-10"
-                    title="Show chats"
-                >
-                    →
-                </button>
-            )}
-
             {/* Main Chat Area */}
-            <div className={`flex flex-col flex-1 transition-all duration-300 ${sidebarOpen ? 'mr-96' : ''}`}>
+            <div className={`flex flex-col flex-1 min-h-0 overflow-hidden transition-all duration-300 ${sidebarOpen ? 'mr-96' : ''}`}>
                 {/* Header with clear button */}
                 {messages.length > 0 && (
                     <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
@@ -362,7 +383,7 @@ export function ChatInterface() {
                 )}
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
                     {messages.length === 0 ? (
                         <div className="h-full flex flex-col justify-end pb-8">
                             <div className="text-center max-w-md mx-auto space-y-4">
