@@ -396,10 +396,11 @@ export function ChatInterface() {
                                             : msg
                                     ))
                                 } else if (data.type === 'done') {
-                                    // Update with final sources
+                                    // Update with only the sources that were actually cited
+                                    const citedSources = data.sources || []
                                     setMessages(prev => prev.map(msg =>
                                         msg.id === assistantMessageId
-                                            ? { ...msg, sources }
+                                            ? { ...msg, sources: citedSources }
                                             : msg
                                     ))
                                     // Refresh chat list to show new chat

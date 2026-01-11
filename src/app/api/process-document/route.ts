@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateEmbedding } from '@/lib/processing/embed'
-import { chunkText } from '@/lib/processing/chunk'
+import { chunkText, TextChunk } from '@/lib/processing/chunk'
 import { parseDocument } from '@/lib/processing/parse'
+import {
+    processWithUnstructured,
+    convertToTextChunks,
+    isUnstructuredConfigured
+} from '@/lib/processing/unstructured'
 
 export async function POST(request: NextRequest) {
     try {
@@ -51,16 +56,46 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to download file' }, { status: 500 })
         }
 
-        // Parse document (supports PDF, DOCX, TXT, MD)
         const buffer = Buffer.from(await fileData.arrayBuffer())
-        const { text, metadata } = await parseDocument(
-            buffer,
-            document.mime_type || '',
-            document.filename || ''
-        )
+        let chunks: TextChunk[]
+        let processingMethod = 'fallback'
 
-        // Chunk the text
-        const chunks = chunkText(text, { chunkSize: 1000, chunkOverlap: 200 })
+        // Try Unstructured.io first if configured
+        if (isUnstructuredConfigured()) {
+            try {
+                console.log('Attempting Unstructured.io processing...')
+                const result = await processWithUnstructured(
+                    buffer,
+                    document.filename || 'document',
+                    {
+                        chunkingStrategy: 'by_title',
+                        maxCharacters: 1500,
+                        overlap: 200
+                    }
+                )
+                chunks = convertToTextChunks(result)
+                processingMethod = 'unstructured'
+                console.log(`Unstructured.io processed ${chunks.length} chunks`)
+            } catch (unstructuredError) {
+                console.warn('Unstructured.io processing failed, falling back to regular chunking:', unstructuredError)
+                // Fall through to regular processing
+                const { text } = await parseDocument(
+                    buffer,
+                    document.mime_type || '',
+                    document.filename || ''
+                )
+                chunks = chunkText(text, { chunkSize: 1000, chunkOverlap: 200 })
+            }
+        } else {
+            // Unstructured not configured, use regular processing
+            console.log('Unstructured.io not configured, using regular chunking')
+            const { text } = await parseDocument(
+                buffer,
+                document.mime_type || '',
+                document.filename || ''
+            )
+            chunks = chunkText(text, { chunkSize: 1000, chunkOverlap: 200 })
+        }
 
         // Generate embeddings and store
         for (const chunk of chunks) {
@@ -84,7 +119,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            chunks: chunks.length
+            chunks: chunks.length,
+            processingMethod
         })
 
     } catch (error) {

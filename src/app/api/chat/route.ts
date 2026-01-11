@@ -234,6 +234,16 @@ Response:`
                         }
                     }
 
+                    // Parse which sources were actually cited in the response
+                    const citedNumbers = new Set<number>()
+                    const citationMatches = fullResponse.matchAll(/\[(\d+)\]/g)
+                    for (const match of citationMatches) {
+                        citedNumbers.add(parseInt(match[1]))
+                    }
+
+                    // Filter to only include sources that were actually cited
+                    const citedSources = numberedSources.filter(s => citedNumbers.has(s.number))
+
                     // Save assistant message after streaming completes
                     await supabase
                         .from('messages')
@@ -241,7 +251,7 @@ Response:`
                             chat_id: currentChatId,
                             role: 'assistant',
                             content: fullResponse,
-                            sources: numberedSources.length > 0 ? numberedSources : null
+                            sources: citedSources.length > 0 ? citedSources : null
                         })
 
                     // Update chat timestamp
@@ -250,8 +260,8 @@ Response:`
                         .update({ updated_at: new Date().toISOString() })
                         .eq('id', currentChatId)
 
-                    // Send done signal
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`))
+                    // Send done signal with only the cited sources
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', sources: citedSources })}\n\n`))
                     controller.close()
                 } catch (error) {
                     console.error('Streaming error:', error)
