@@ -440,14 +440,13 @@ export function ChatInterface() {
                         <>
                             <span className="text-sm font-medium text-zinc-400">CHATS</span>
                             <div className="flex items-center gap-1">
-                                <Button
-                                    variant="ghost"
+                                <button
                                     onClick={createNewChat}
-                                    className="text-zinc-500 hover:text-white text-sm w-7 h-7 p-0"
+                                    className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                                     title="New Chat"
                                 >
                                     +
-                                </Button>
+                                </button>
                                 <button
                                     onClick={() => setChatSidebarOpen(false)}
                                     className="w-7 h-7 flex items-center justify-center text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
