@@ -84,15 +84,6 @@ export default function Home() {
                 Start Free →
               </Button>
             </Link>
-            <Link href="/login">
-              <Button
-                size="lg"
-                variant="outline"
-                className="h-14 px-8 border-zinc-700 text-white hover:bg-zinc-900 font-medium text-lg"
-              >
-                Sign In
-              </Button>
-            </Link>
           </motion.div>
         </motion.div>
 
