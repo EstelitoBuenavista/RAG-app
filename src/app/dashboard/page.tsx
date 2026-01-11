@@ -36,6 +36,23 @@ export default async function DashboardPage() {
         embeddingCount = count ?? 0
     }
 
+    // Fetch user's chats to count queries (user messages)
+    const { data: userChats } = await supabase
+        .from('chats')
+        .select('id')
+        .eq('user_id', user.id)
+
+    let queryCount = 0
+    if (userChats && userChats.length > 0) {
+        const chatIds = userChats.map(c => c.id)
+        const { count } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .in('chat_id', chatIds)
+            .eq('role', 'user')
+        queryCount = count ?? 0
+    }
+
     return (
         <div className="min-h-screen bg-zinc-950 text-white">
             {/* Header */}
@@ -104,7 +121,7 @@ export default async function DashboardPage() {
                                 <p className="text-sm text-zinc-500 mt-1">Embeddings</p>
                             </div>
                             <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">—</p>
+                                <p className="text-3xl font-bold">{queryCount}</p>
                                 <p className="text-sm text-zinc-500 mt-1">Queries</p>
                             </div>
                             <div className="bg-zinc-950 p-6">
