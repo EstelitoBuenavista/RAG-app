@@ -28,7 +28,14 @@ export async function updateSession(request: NextRequest) {
     )
 
     // Refreshing the auth token
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Redirect logged-in users from home to dashboard
+    if (user && request.nextUrl.pathname === '/') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+    }
 
     return supabaseResponse
 }
