@@ -98,7 +98,17 @@ export function DocumentList() {
 
         // Poll for updates every 5 seconds to catch processing status changes
         const interval = setInterval(fetchDocuments, 5000)
-        return () => clearInterval(interval)
+
+        // Listen for document upload events to refresh immediately
+        const handleDocumentUploaded = () => {
+            fetchDocuments()
+        }
+        window.addEventListener('document-uploaded', handleDocumentUploaded)
+
+        return () => {
+            clearInterval(interval)
+            window.removeEventListener('document-uploaded', handleDocumentUploaded)
+        }
     }, [])
 
     const handleClearAll = async () => {

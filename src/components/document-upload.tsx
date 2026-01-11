@@ -106,8 +106,10 @@ export function DocumentUpload() {
                             : f
                     )
                 )
-                // Refresh server components to update Quick Stats and document list
+                // Refresh server components to update Quick Stats
                 router.refresh()
+                // Notify document-list component to refresh
+                window.dispatchEvent(new CustomEvent('document-uploaded'))
             } else {
                 let errorMessage = 'Processing failed'
                 try {
