@@ -101,6 +101,9 @@ export function ChatInterface() {
         setSidebarOpen(false)
     }
 
+    const [editingChatId, setEditingChatId] = useState<string | null>(null)
+    const [editingTitle, setEditingTitle] = useState('')
+
     const deleteChat = async (chatId: string, e: React.MouseEvent) => {
         e.stopPropagation()
         try {
@@ -113,6 +116,50 @@ export function ChatInterface() {
             }
         } catch (error) {
             console.error('Failed to delete chat:', error)
+        }
+    }
+
+    const startEditingChat = (chat: Chat, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setEditingChatId(chat.id)
+        setEditingTitle(chat.title)
+    }
+
+    const cancelEditingChat = () => {
+        setEditingChatId(null)
+        setEditingTitle('')
+    }
+
+    const updateChatTitle = async (chatId: string) => {
+        if (!editingTitle.trim()) {
+            cancelEditingChat()
+            return
+        }
+        try {
+            const response = await fetch(`/api/chats/${chatId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: editingTitle.trim() })
+            })
+            if (response.ok) {
+                const data = await response.json()
+                setChats(prev => prev.map(c =>
+                    c.id === chatId ? { ...c, title: data.chat.title } : c
+                ))
+            }
+        } catch (error) {
+            console.error('Failed to update chat title:', error)
+        } finally {
+            cancelEditingChat()
+        }
+    }
+
+    const handleEditKeyDown = (e: React.KeyboardEvent, chatId: string) => {
+        if (e.key === 'Enter') {
+            e.preventDefault()
+            updateChatTitle(chatId)
+        } else if (e.key === 'Escape') {
+            cancelEditingChat()
         }
     }
 
@@ -327,18 +374,42 @@ export function ChatInterface() {
                                 chats.map(chat => (
                                     <div
                                         key={chat.id}
-                                        onClick={() => loadChat(chat.id)}
+                                        onClick={() => editingChatId !== chat.id && loadChat(chat.id)}
                                         className={`group p-3 border-b border-zinc-800 cursor-pointer hover:bg-zinc-800 transition-colors ${currentChatId === chat.id ? 'bg-zinc-800' : ''}`}
                                     >
                                         <div className="flex items-center justify-between">
-                                            <span className="text-sm text-zinc-300 truncate flex-1">{chat.title}</span>
-                                            <button
-                                                onClick={(e) => deleteChat(chat.id, e)}
-                                                className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-400 text-xs ml-2 transition-opacity cursor-pointer hover:bg-zinc-700"
-                                                title="Delete chat"
-                                            >
-                                                ✕
-                                            </button>
+                                            {editingChatId === chat.id ? (
+                                                <input
+                                                    type="text"
+                                                    value={editingTitle}
+                                                    onChange={(e) => setEditingTitle(e.target.value)}
+                                                    onKeyDown={(e) => handleEditKeyDown(e, chat.id)}
+                                                    onBlur={() => updateChatTitle(chat.id)}
+                                                    className="flex-1 text-sm bg-zinc-700 text-white px-2 py-1 border border-zinc-600 focus:outline-none focus:border-zinc-500"
+                                                    autoFocus
+                                                    onClick={(e) => e.stopPropagation()}
+                                                />
+                                            ) : (
+                                                <span className="text-sm text-zinc-300 truncate flex-1">{chat.title}</span>
+                                            )}
+                                            <div className="flex items-center ml-2">
+                                                {editingChatId !== chat.id && (
+                                                    <button
+                                                        onClick={(e) => startEditingChat(chat, e)}
+                                                        className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-white text-xs transition-opacity cursor-pointer hover:bg-zinc-700"
+                                                        title="Edit title"
+                                                    >
+                                                        ✎
+                                                    </button>
+                                                )}
+                                                <button
+                                                    onClick={(e) => deleteChat(chat.id, e)}
+                                                    className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center text-zinc-500 hover:text-red-400 text-xs transition-opacity cursor-pointer hover:bg-zinc-700"
+                                                    title="Delete chat"
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
                                         </div>
                                         <div className="text-xs text-zinc-600 mt-1">
                                             {new Date(chat.updated_at).toLocaleDateString()}
@@ -366,21 +437,6 @@ export function ChatInterface() {
 
             {/* Main Chat Area */}
             <div className={`flex flex-col flex-1 min-h-0 overflow-hidden transition-all duration-300 ${sidebarOpen ? 'mr-96' : ''}`}>
-                {/* Header with clear button */}
-                {messages.length > 0 && (
-                    <div className="p-4 border-b border-zinc-800 flex justify-between items-center">
-                        <span className="text-sm text-zinc-500">
-                            Click on numbered citations to view sources
-                        </span>
-                        <Button
-                            variant="ghost"
-                            onClick={createNewChat}
-                            className="text-zinc-500 hover:text-white text-sm"
-                        >
-                            New Chat
-                        </Button>
-                    </div>
-                )}
 
                 {/* Messages */}
                 <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
