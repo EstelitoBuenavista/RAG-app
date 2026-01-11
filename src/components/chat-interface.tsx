@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { motion, fadeInUp, useMotionVariants } from '@/lib/motion'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface Source {
     number: number
@@ -171,16 +173,15 @@ export function ChatInterface() {
         }
     }
 
-    const renderMessageWithCitations = (content: string, sources?: Source[]) => {
+    // Render text with citations converted to buttons
+    const renderTextWithCitations = (text: string, sources?: Source[]) => {
         if (!sources || sources.length === 0) {
-            return <span>{content}</span>
+            return <>{text}</>
         }
 
-        // Parse citations like [1], [2], [1][2]
-        const parts = content.split(/(\[\d+\])/g)
-
+        const parts = text.split(/(\[\d+\])/g)
         return (
-            <span>
+            <>
                 {parts.map((part, index) => {
                     const match = part.match(/\[(\d+)\]/)
                     if (match) {
@@ -201,7 +202,112 @@ export function ChatInterface() {
                     }
                     return <span key={index}>{part}</span>
                 })}
-            </span>
+            </>
+        )
+    }
+
+    const renderMessageWithCitations = (content: string, sources?: Source[]) => {
+        return (
+            <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                    // Override paragraph to include citations
+                    p: ({ children }) => {
+                        return (
+                            <p className="mb-3 last:mb-0">
+                                {Array.isArray(children)
+                                    ? children.map((child, i) =>
+                                        typeof child === 'string'
+                                            ? renderTextWithCitations(child, sources)
+                                            : <span key={i}>{child}</span>
+                                    )
+                                    : typeof children === 'string'
+                                        ? renderTextWithCitations(children, sources)
+                                        : children
+                                }
+                            </p>
+                        )
+                    },
+                    // Style code blocks
+                    code: ({ className, children, ...props }) => {
+                        const isInline = !className
+                        return isInline ? (
+                            <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-sm text-zinc-200" {...props}>
+                                {children}
+                            </code>
+                        ) : (
+                            <code className={`block bg-zinc-800 p-4 rounded-lg text-sm overflow-x-auto ${className || ''}`} {...props}>
+                                {children}
+                            </code>
+                        )
+                    },
+                    // Style pre blocks
+                    pre: ({ children }) => (
+                        <pre className="bg-zinc-800 rounded-lg my-3 overflow-x-auto">
+                            {children}
+                        </pre>
+                    ),
+                    // Style headers
+                    h1: ({ children }) => <h1 className="text-2xl font-bold mb-3 mt-4">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-xl font-bold mb-2 mt-3">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-lg font-semibold mb-2 mt-3">{children}</h3>,
+                    // Style lists
+                    ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>,
+                    li: ({ children }) => (
+                        <li>
+                            {Array.isArray(children)
+                                ? children.map((child, i) =>
+                                    typeof child === 'string'
+                                        ? renderTextWithCitations(child, sources)
+                                        : <span key={i}>{child}</span>
+                                )
+                                : typeof children === 'string'
+                                    ? renderTextWithCitations(children, sources)
+                                    : children
+                            }
+                        </li>
+                    ),
+                    // Style blockquotes
+                    blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-zinc-600 pl-4 my-3 italic text-zinc-400">
+                            {children}
+                        </blockquote>
+                    ),
+                    // Style links
+                    a: ({ href, children }) => (
+                        <a href={href} className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">
+                            {children}
+                        </a>
+                    ),
+                    // Style tables
+                    table: ({ children }) => (
+                        <div className="overflow-x-auto my-3">
+                            <table className="min-w-full border-collapse border border-zinc-700">
+                                {children}
+                            </table>
+                        </div>
+                    ),
+                    th: ({ children }) => (
+                        <th className="border border-zinc-700 bg-zinc-800 px-3 py-2 text-left font-semibold">
+                            {children}
+                        </th>
+                    ),
+                    td: ({ children }) => (
+                        <td className="border border-zinc-700 px-3 py-2">
+                            {children}
+                        </td>
+                    ),
+                    // Style horizontal rules
+                    hr: () => <hr className="border-zinc-700 my-4" />,
+                    // Style strong/bold
+                    strong: ({ children }) => <strong className="font-semibold text-white">{children}</strong>,
+                    // Style emphasis/italic
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                }}
+            >
+                {content}
+            </ReactMarkdown>
         )
     }
 
@@ -472,7 +578,7 @@ export function ChatInterface() {
                                             : 'bg-zinc-900 border border-zinc-800'
                                             } p-4`}
                                     >
-                                        <div className="whitespace-pre-wrap">
+                                        <div className={message.role === 'user' ? 'whitespace-pre-wrap' : ''}>
                                             {message.role === 'assistant'
                                                 ? renderMessageWithCitations(message.content, message.sources)
                                                 : message.content
