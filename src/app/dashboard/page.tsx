@@ -4,6 +4,7 @@ import { signout } from '@/app/auth/actions'
 import { DocumentUpload } from '@/components/document-upload'
 import { DocumentList } from '@/components/document-list'
 import { Button } from '@/components/ui/button'
+import { UserMenu } from '@/components/user-menu'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
@@ -78,19 +79,7 @@ export default async function DashboardPage() {
                             </Link>
                         </nav>
                     </div>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-sm text-zinc-500 font-mono">{user.email}</span>
-                        <form>
-                            <Button
-                                formAction={signout}
-                                variant="outline"
-                                size="sm"
-                                className="border-zinc-700 text-zinc-400 hover:bg-zinc-900 hover:text-white rounded-none"
-                            >
-                                Sign Out
-                            </Button>
-                        </form>
-                    </div>
+                    <UserMenu email={user.email || ''} signoutAction={signout} />
                 </div>
             </header>
 

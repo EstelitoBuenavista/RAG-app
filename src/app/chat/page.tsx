@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { signout } from '@/app/auth/actions'
 import { ChatInterface } from '@/components/chat-interface'
+import { UserMenu } from '@/components/user-menu'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
@@ -38,19 +39,7 @@ export default async function ChatPage() {
                             </Link>
                         </nav>
                     </div>
-                    <div className="flex items-center space-x-4">
-                        <span className="text-sm text-zinc-500 font-mono">{user.email}</span>
-                        <form>
-                            <Button
-                                formAction={signout}
-                                variant="outline"
-                                size="sm"
-                                className="border-zinc-700 text-zinc-400 hover:bg-zinc-900 hover:text-white rounded-none"
-                            >
-                                Sign Out
-                            </Button>
-                        </form>
-                    </div>
+                    <UserMenu email={user.email || ''} signoutAction={signout} />
                 </div>
             </header>
 
