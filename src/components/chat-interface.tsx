@@ -579,12 +579,33 @@ export function ChatInterface() {
                                     >
                                         <div className={message.role === 'user' ? 'whitespace-pre-wrap' : ''}>
                                             {message.role === 'assistant'
-                                                ? renderMessageWithCitations(message.content, message.sources)
+                                                ? (message.content === '' && isStreaming
+                                                    ? (
+                                                        <div className="flex items-center space-x-3">
+                                                            <div className="flex space-x-1">
+                                                                <motion.div
+                                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                                                                />
+                                                                <motion.div
+                                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                                                />
+                                                                <motion.div
+                                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                                                                />
+                                                            </div>
+                                                            <span className="text-zinc-400 text-sm font-medium">Searching documents...</span>
+                                                        </div>
+                                                    )
+                                                    : renderMessageWithCitations(message.content, message.sources)
+                                                )
                                                 : message.content
                                             }
-                                            {isStreaming && message.role === 'assistant' && message.content === '' && (
-                                                <span className="inline-block w-2 h-4 bg-zinc-500 animate-pulse" />
-                                            )}
                                         </div>
 
                                         {message.sources && message.sources.length > 0 && (
@@ -612,18 +633,35 @@ export function ChatInterface() {
                                 </motion.div>
                             ))}
                             {isLoading && !isStreaming && (
-                                <div className="flex justify-start">
+                                <motion.div
+                                    className="flex justify-start"
+                                    initial={{ opacity: 0, y: 6 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.25 }}
+                                >
                                     <div className="bg-zinc-900 border border-zinc-800 p-4">
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-3">
                                             <div className="flex space-x-1">
-                                                <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                                <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                                <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                                <motion.div
+                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                                                />
+                                                <motion.div
+                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                                                />
+                                                <motion.div
+                                                    className="w-2 h-2 bg-zinc-400 rounded-full"
+                                                    animate={{ opacity: [0.4, 1, 0.4] }}
+                                                    transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.4 }}
+                                                />
                                             </div>
-                                            <span className="text-zinc-500 text-sm">Searching documents...</span>
+                                            <span className="text-zinc-400 text-sm font-medium">Searching documents...</span>
                                         </div>
                                     </div>
-                                </div>
+                                </motion.div>
                             )}
                             <div ref={messagesEndRef} />
                         </>
