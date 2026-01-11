@@ -218,7 +218,7 @@ export function ChatInterface() {
                                 {Array.isArray(children)
                                     ? children.map((child, i) =>
                                         typeof child === 'string'
-                                            ? renderTextWithCitations(child, sources)
+                                            ? <span key={i}>{renderTextWithCitations(child, sources)}</span>
                                             : <span key={i}>{child}</span>
                                     )
                                     : typeof children === 'string'
@@ -259,7 +259,7 @@ export function ChatInterface() {
                             {Array.isArray(children)
                                 ? children.map((child, i) =>
                                     typeof child === 'string'
-                                        ? renderTextWithCitations(child, sources)
+                                        ? <span key={i}>{renderTextWithCitations(child, sources)}</span>
                                         : <span key={i}>{child}</span>
                                 )
                                 : typeof children === 'string'
