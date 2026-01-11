@@ -35,6 +35,7 @@ export function ChatInterface() {
     const [isLoading, setIsLoading] = useState(false)
     const [isStreaming, setIsStreaming] = useState(false)
     const [selectedSource, setSelectedSource] = useState<Source | null>(null)
+    const [selectedMessageId, setSelectedMessageId] = useState<string | null>(null)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [chatSidebarOpen, setChatSidebarOpen] = useState(true)
     const [chats, setChats] = useState<Chat[]>([])
@@ -165,10 +166,11 @@ export function ChatInterface() {
         }
     }
 
-    const handleCitationClick = (sourceNumber: number, msgSources?: Source[]) => {
+    const handleCitationClick = (sourceNumber: number, msgSources?: Source[], messageId?: string) => {
         const source = msgSources?.find(s => s.number === sourceNumber)
         if (source) {
             setSelectedSource(source)
+            setSelectedMessageId(messageId || null)
             setSidebarOpen(true)
         }
     }
@@ -618,8 +620,8 @@ export function ChatInterface() {
                                                     {message.sources.map((source) => (
                                                         <button
                                                             key={source.number}
-                                                            onClick={() => handleCitationClick(source.number, message.sources)}
-                                                            className={`text-xs px-2 py-1 border transition-colors ${selectedSource?.number === source.number
+                                                            onClick={() => handleCitationClick(source.number, message.sources, message.id)}
+                                                            className={`text-xs px-2 py-1 border transition-colors ${selectedSource?.number === source.number && selectedMessageId === message.id
                                                                 ? 'border-white bg-white text-zinc-950'
                                                                 : 'border-zinc-700 hover:border-zinc-500 text-zinc-400'
                                                                 }`}
@@ -708,6 +710,7 @@ export function ChatInterface() {
                                 onClick={() => {
                                     setSidebarOpen(false)
                                     setSelectedSource(null)
+                                    setSelectedMessageId(null)
                                 }}
                                 className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors cursor-pointer flex-shrink-0"
                                 title="Close sidebar"

@@ -70,6 +70,7 @@ export function DocumentList() {
     const [loading, setLoading] = useState(true)
     const [deleting, setDeleting] = useState<string | null>(null)
     const [clearingAll, setClearingAll] = useState(false)
+    const [showClearModal, setShowClearModal] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const containerVariants = useMotionVariants(staggerContainer)
     const itemVariants = useMotionVariants(staggerItem)
@@ -101,6 +102,7 @@ export function DocumentList() {
     }, [])
 
     const handleClearAll = async () => {
+        setShowClearModal(false)
         setClearingAll(true)
         try {
             const response = await fetch('/api/documents', {
@@ -176,7 +178,7 @@ export function DocumentList() {
                     <Button
                         variant="ghost"
                         size="sm"
-                        onClick={handleClearAll}
+                        onClick={() => setShowClearModal(true)}
                         disabled={clearingAll || documents.length === 0}
                         className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
                     >
@@ -263,6 +265,44 @@ export function DocumentList() {
                         </motion.div>
                     ))}
                 </motion.div>
+            )}
+
+            {/* Clear All Confirmation Modal */}
+            {showClearModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                    {/* Overlay */}
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                        onClick={() => setShowClearModal(false)}
+                    />
+                    {/* Modal */}
+                    <motion.div
+                        className="relative bg-zinc-900 border border-zinc-800 p-6 max-w-md w-full mx-4 shadow-2xl"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <h3 className="text-lg font-bold text-white mb-2">Clear All Documents?</h3>
+                        <p className="text-zinc-400 text-sm mb-6">
+                            This will permanently delete all {documents.length} document{documents.length !== 1 ? 's' : ''} and their embeddings. This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setShowClearModal(false)}
+                                className="text-zinc-400 hover:text-white hover:bg-zinc-800"
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleClearAll}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                Delete All
+                            </Button>
+                        </div>
+                    </motion.div>
+                </div>
             )}
         </div>
     )
