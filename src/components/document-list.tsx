@@ -85,7 +85,11 @@ export function DocumentList() {
                 throw new Error(data.error || 'Failed to fetch documents')
             }
 
-            setDocuments(data.documents || [])
+            // Filter out any documents with missing filenames
+            const validDocs = (data.documents || []).filter(
+                (doc: Document) => doc.filename && doc.filename.trim() !== ''
+            )
+            setDocuments(validDocs)
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to fetch documents')
         } finally {
@@ -99,14 +103,20 @@ export function DocumentList() {
         // Poll for updates every 5 seconds to catch processing status changes
         const interval = setInterval(fetchDocuments, 5000)
 
-        // Listen for document upload events to refresh immediately
+        // Debounced handler for document upload events to prevent race conditions
+        let debounceTimer: NodeJS.Timeout | null = null
         const handleDocumentUploaded = () => {
-            fetchDocuments()
+            // Clear any pending refresh and wait for events to settle
+            if (debounceTimer) clearTimeout(debounceTimer)
+            debounceTimer = setTimeout(() => {
+                fetchDocuments()
+            }, 300)
         }
         window.addEventListener('document-uploaded', handleDocumentUploaded)
 
         return () => {
             clearInterval(interval)
+            if (debounceTimer) clearTimeout(debounceTimer)
             window.removeEventListener('document-uploaded', handleDocumentUploaded)
         }
     }, [])
@@ -227,17 +237,14 @@ export function DocumentList() {
                     <p className="text-zinc-600 text-sm mt-1">Upload documents to get started</p>
                 </div>
             ) : (
-                <motion.div
-                    className="divide-y divide-zinc-800"
-                    initial="hidden"
-                    animate="visible"
-                    variants={containerVariants}
-                >
+                <div className="divide-y divide-zinc-800">
                     {documents.map((doc) => (
                         <motion.div
                             key={doc.id}
                             className="p-4 flex items-center justify-between hover:bg-zinc-900/50 transition-colors"
-                            variants={itemVariants}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.2 }}
                         >
                             <div className="flex items-center gap-4 min-w-0 flex-1">
                                 <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center flex-shrink-0">
@@ -274,7 +281,7 @@ export function DocumentList() {
                             </Button>
                         </motion.div>
                     ))}
-                </motion.div>
+                </div>
             )}
 
             {/* Clear All Confirmation Modal */}

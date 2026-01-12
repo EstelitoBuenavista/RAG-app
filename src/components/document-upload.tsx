@@ -34,19 +34,6 @@ export function DocumentUpload() {
         const fileExt = file.name.split('.').pop()
         const storagePath = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
 
-        // Create a temporary entry with uploading status
-        const tempId = `temp-${Date.now()}`
-        const tempFile: UploadedFile = {
-            id: tempId,
-            name: file.name,
-            size: file.size,
-            status: 'uploading',
-            uploadedAt: new Date(),
-        }
-
-        // Update UI immediately
-        setUploadedFiles(prev => [...prev, tempFile])
-
         try {
             // 1. Upload to Supabase Storage
             const { error: uploadError } = await supabase.storage
@@ -81,14 +68,10 @@ export function DocumentUpload() {
                 throw new Error(`Database error: ${dbError.message}`)
             }
 
-            // Update with real ID and status
-            setUploadedFiles(prev =>
-                prev.map(f =>
-                    f.id === tempId
-                        ? { ...f, id: document.id, status: 'processing' as const }
-                        : f
-                )
-            )
+            // Small delay to ensure database write is visible, then notify document-list
+            setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('document-uploaded'))
+            }, 100)
 
             // 3. Trigger processing
             const processResponse = await fetch('/api/process-document', {
@@ -98,18 +81,12 @@ export function DocumentUpload() {
             })
 
             if (processResponse.ok) {
-                // Update status to ready
-                setUploadedFiles(prev =>
-                    prev.map(f =>
-                        f.id === document.id
-                            ? { ...f, status: 'ready' as const }
-                            : f
-                    )
-                )
                 // Refresh server components to update Quick Stats
                 router.refresh()
-                // Notify document-list component to refresh
-                window.dispatchEvent(new CustomEvent('document-uploaded'))
+                // Notify document-list component to refresh (with delay for database visibility)
+                setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('document-uploaded'))
+                }, 100)
             } else {
                 let errorMessage = 'Processing failed'
                 try {
@@ -130,14 +107,6 @@ export function DocumentUpload() {
                 uploadedAt: new Date(),
             }
         } catch (err) {
-            // Update status to error
-            setUploadedFiles(prev =>
-                prev.map(f =>
-                    f.id === tempId
-                        ? { ...f, status: 'error' as const }
-                        : f
-                )
-            )
             throw err
         }
     }
