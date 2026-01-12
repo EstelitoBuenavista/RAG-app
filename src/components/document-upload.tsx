@@ -292,7 +292,17 @@ export function DocumentUpload() {
 
                 {uploadedFiles.length > 0 && (
                     <div className="space-y-2">
-                        <p className="text-sm text-zinc-500 font-medium">DOCUMENTS</p>
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-zinc-500 font-medium">DOCUMENTS</p>
+                            {!isAnyUploading && (
+                                <button
+                                    onClick={() => setUploadedFiles([])}
+                                    className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         <div className="divide-y divide-zinc-800 border border-zinc-800">
                             {uploadedFiles.map((file) => (
                                 <div
