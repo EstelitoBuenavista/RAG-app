@@ -150,13 +150,42 @@ export function DocumentUpload() {
         const files = Array.from(e.dataTransfer.files)
         if (files.length === 0) return
 
+        // Add all files to the list upfront as 'pending'
+        const pendingFiles: UploadedFile[] = files.map((file, index) => ({
+            id: `pending-${Date.now()}-${index}`,
+            name: file.name,
+            size: file.size,
+            status: 'uploading' as const,
+            uploadedAt: new Date(),
+        }))
+        setUploadedFiles(prev => [...prev, ...pendingFiles])
+
         try {
-            // Process files one by one to show progress
-            for (const file of files) {
+            // Process files one by one 
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i]
+                const pendingId = pendingFiles[i].id
                 try {
-                    await uploadFile(file)
+                    // Update to show this one is now being processed
+                    setUploadedFiles(prev =>
+                        prev.map(f =>
+                            f.id === pendingId ? { ...f, status: 'uploading' as const } : f
+                        )
+                    )
+                    const result = await uploadFile(file)
+                    // Update with real data
+                    setUploadedFiles(prev =>
+                        prev.map(f =>
+                            f.id === pendingId ? { ...result } : f
+                        )
+                    )
                 } catch (err) {
                     console.error(`Failed to upload ${file.name}:`, err)
+                    setUploadedFiles(prev =>
+                        prev.map(f =>
+                            f.id === pendingId ? { ...f, status: 'error' as const } : f
+                        )
+                    )
                 }
             }
         } catch (err) {
@@ -169,13 +198,36 @@ export function DocumentUpload() {
         const files = Array.from(e.target.files || [])
         if (files.length === 0) return
 
+        // Add all files to the list upfront as 'uploading'
+        const pendingFiles: UploadedFile[] = files.map((file, index) => ({
+            id: `pending-${Date.now()}-${index}`,
+            name: file.name,
+            size: file.size,
+            status: 'uploading' as const,
+            uploadedAt: new Date(),
+        }))
+        setUploadedFiles(prev => [...prev, ...pendingFiles])
+
         try {
-            // Process files one by one to show progress
-            for (const file of files) {
+            // Process files one by one
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i]
+                const pendingId = pendingFiles[i].id
                 try {
-                    await uploadFile(file)
+                    const result = await uploadFile(file)
+                    // Update with real data
+                    setUploadedFiles(prev =>
+                        prev.map(f =>
+                            f.id === pendingId ? { ...result } : f
+                        )
+                    )
                 } catch (err) {
                     console.error(`Failed to upload ${file.name}:`, err)
+                    setUploadedFiles(prev =>
+                        prev.map(f =>
+                            f.id === pendingId ? { ...f, status: 'error' as const } : f
+                        )
+                    )
                 }
             }
         } catch (err) {
