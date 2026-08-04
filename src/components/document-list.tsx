@@ -1,83 +1,85 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import {
+    FileText,
+    Loader2,
+    RefreshCw,
+    RotateCw,
+    Trash2,
+    XCircle,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Trash2, FileText, Loader2, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react'
-import { motion, staggerContainer, staggerItem, useMotionVariants } from '@/lib/motion'
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card'
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+    DocumentStatusBadge,
+    type DocumentStatus,
+} from '@/components/document-status-badge'
 
 interface Document {
     id: string
     filename: string
     mime_type: string
     file_size: number
-    status: 'pending' | 'processing' | 'ready' | 'error'
+    status: DocumentStatus
     created_at: string
 }
 
 function formatFileSize(bytes: number): string {
-    if (bytes === 0) return '0 B'
+    if (!bytes) return '0 B'
     const k = 1024
     const sizes = ['B', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
 }
 
 function formatDate(dateString: string): string {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
     })
-}
-
-function getStatusIcon(status: Document['status']) {
-    switch (status) {
-        case 'ready':
-            return <CheckCircle2 className="w-4 h-4 text-green-500" />
-        case 'processing':
-            return <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />
-        case 'pending':
-            return <Clock className="w-4 h-4 text-zinc-500" />
-        case 'error':
-            return <AlertCircle className="w-4 h-4 text-red-500" />
-        default:
-            return null
-    }
-}
-
-function getStatusText(status: Document['status']) {
-    switch (status) {
-        case 'ready':
-            return 'Ready'
-        case 'processing':
-            return 'Processing...'
-        case 'pending':
-            return 'Pending'
-        case 'error':
-            return 'Error'
-        default:
-            return status
-    }
 }
 
 export function DocumentList() {
     const router = useRouter()
     const [documents, setDocuments] = useState<Document[]>([])
     const [loading, setLoading] = useState(true)
+    const [refreshing, setRefreshing] = useState(false)
     const [deleting, setDeleting] = useState<string | null>(null)
     const [clearingAll, setClearingAll] = useState(false)
-    const [showClearModal, setShowClearModal] = useState(false)
-    const [error, setError] = useState<string | null>(null)
-    const containerVariants = useMotionVariants(staggerContainer)
-    const itemVariants = useMotionVariants(staggerItem)
+    const [reprocessing, setReprocessing] = useState(false)
 
-    const fetchDocuments = async () => {
+    // Avoids a stale-closure read of `documents` inside the poll interval.
+    const isBusy = useRef(false)
+    isBusy.current = clearingAll || reprocessing
+
+    const fetchDocuments = useCallback(async () => {
         try {
-            setError(null)
             const response = await fetch('/api/documents')
             const data = await response.json()
 
@@ -85,32 +87,32 @@ export function DocumentList() {
                 throw new Error(data.error || 'Failed to fetch documents')
             }
 
-            // Filter out any documents with missing filenames
-            const validDocs = (data.documents || []).filter(
-                (doc: Document) => doc.filename && doc.filename.trim() !== ''
+            setDocuments(
+                (data.documents || []).filter(
+                    (doc: Document) => doc.filename && doc.filename.trim() !== ''
+                )
             )
-            setDocuments(validDocs)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to fetch documents')
+            toast.error('Could not load documents', {
+                description: err instanceof Error ? err.message : undefined,
+            })
         } finally {
             setLoading(false)
         }
-    }
+    }, [])
 
     useEffect(() => {
         fetchDocuments()
 
-        // Poll for updates every 5 seconds to catch processing status changes
-        const interval = setInterval(fetchDocuments, 5000)
+        // Poll so status transitions land without a manual refresh.
+        const interval = setInterval(() => {
+            if (!isBusy.current) fetchDocuments()
+        }, 5000)
 
-        // Debounced handler for document upload events to prevent race conditions
-        let debounceTimer: NodeJS.Timeout | null = null
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null
         const handleDocumentUploaded = () => {
-            // Clear any pending refresh and wait for events to settle
             if (debounceTimer) clearTimeout(debounceTimer)
-            debounceTimer = setTimeout(() => {
-                fetchDocuments()
-            }, 300)
+            debounceTimer = setTimeout(fetchDocuments, 300)
         }
         window.addEventListener('document-uploaded', handleDocumentUploaded)
 
@@ -119,18 +121,22 @@ export function DocumentList() {
             if (debounceTimer) clearTimeout(debounceTimer)
             window.removeEventListener('document-uploaded', handleDocumentUploaded)
         }
-    }, [])
+    }, [fetchDocuments])
+
+    const handleRefresh = async () => {
+        setRefreshing(true)
+        await fetchDocuments()
+        setRefreshing(false)
+    }
 
     const handleClearAll = async () => {
-        setShowClearModal(false)
         setClearingAll(true)
         try {
             const response = await fetch('/api/documents', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ clearAll: true })
+                body: JSON.stringify({ clearAll: true }),
             })
-
             const data = await response.json()
 
             if (!response.ok) {
@@ -138,189 +144,267 @@ export function DocumentList() {
             }
 
             setDocuments([])
-            // Refresh server components to update Quick Stats
             router.refresh()
+            toast.success('All documents deleted')
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to clear documents')
+            toast.error('Could not clear documents', {
+                description: err instanceof Error ? err.message : undefined,
+            })
         } finally {
             setClearingAll(false)
         }
     }
 
-    const handleDelete = async (documentId: string) => {
+    const handleDelete = async (documentId: string, filename: string) => {
         setDeleting(documentId)
         try {
             const response = await fetch('/api/documents', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ documentId })
+                body: JSON.stringify({ documentId }),
             })
-
             const data = await response.json()
 
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to delete document')
             }
 
-            // Remove from local state
             setDocuments(docs => docs.filter(d => d.id !== documentId))
-            // Refresh server components to update Quick Stats
             router.refresh()
+            toast.success(`Deleted ${filename}`)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to delete document')
+            toast.error('Could not delete document', {
+                description: err instanceof Error ? err.message : undefined,
+            })
         } finally {
             setDeleting(null)
         }
     }
 
-    if (loading) {
-        return (
-            <div className="border border-zinc-800">
-                <div className="border-b border-zinc-800 p-6">
-                    <h2 className="text-lg font-bold">Your Documents</h2>
-                    <p className="text-zinc-500 text-sm mt-1">Manage your uploaded documents</p>
-                </div>
-                <div className="p-12 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
-                </div>
-            </div>
+    /**
+     * Rebuilds vectors for anything not currently indexed. This is the path back
+     * to a working index after the embedding-model migration, which clears all
+     * old vectors and resets documents to 'pending'.
+     */
+    const handleReprocess = async () => {
+        const stale = documents.filter(d => d.status !== 'ready')
+        if (stale.length === 0) return
+
+        setReprocessing(true)
+        const toastId = toast.loading(
+            `Reprocessing 0 of ${stale.length} documents...`
         )
+        let succeeded = 0
+        let failed = 0
+
+        // Sequential on purpose: each document is many embedding calls, and
+        // firing them all at once trips provider rate limits.
+        for (const [i, doc] of stale.entries()) {
+            toast.loading(`Reprocessing ${i + 1} of ${stale.length} documents...`, {
+                id: toastId,
+                description: doc.filename,
+            })
+            try {
+                const response = await fetch('/api/process-document', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ documentId: doc.id }),
+                })
+                if (!response.ok) throw new Error()
+                succeeded++
+            } catch {
+                failed++
+            }
+            await fetchDocuments()
+        }
+
+        setReprocessing(false)
+        router.refresh()
+
+        if (failed === 0) {
+            toast.success(`Reprocessed ${succeeded} document${succeeded === 1 ? '' : 's'}`, {
+                id: toastId,
+                description: undefined,
+            })
+        } else {
+            toast.error(`${failed} document${failed === 1 ? '' : 's'} failed`, {
+                id: toastId,
+                description: `${succeeded} succeeded. Check the failed items and try again.`,
+            })
+        }
     }
 
+    const staleCount = documents.filter(d => d.status !== 'ready').length
+    const busy = clearingAll || reprocessing
+
     return (
-        <div className="border border-zinc-800">
-            <div className="border-b border-zinc-800 p-6 flex items-center justify-between">
-                <div>
-                    <h2 className="text-lg font-bold">Your Documents</h2>
-                    <p className="text-zinc-500 text-sm mt-1">Manage your uploaded documents</p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowClearModal(true)}
-                        disabled={clearingAll || documents.length === 0}
-                        className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
-                    >
-                        {clearingAll ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                            <XCircle className="w-4 h-4" />
-                        )}
-                        <span className="ml-1.5">Clear All</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            setLoading(true)
-                            fetchDocuments()
-                        }}
-                        className="text-zinc-500 hover:text-white"
-                    >
-                        <RefreshCw className="w-4 h-4" />
-                    </Button>
-                </div>
-            </div>
+        <Card>
+            <CardHeader className="border-b [.border-b]:pb-6">
+                <CardTitle>Your documents</CardTitle>
+                <CardDescription>
+                    {documents.length > 0
+                        ? `${documents.length} document${documents.length === 1 ? '' : 's'} in your knowledge base`
+                        : 'Manage your uploaded documents'}
+                </CardDescription>
 
-            {error && (
-                <div className="p-4 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4" />
-                    {error}
-                </div>
-            )}
-
-            {documents.length === 0 ? (
-                <div className="p-12 text-center">
-                    <FileText className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                    <p className="text-zinc-500">No documents uploaded yet</p>
-                    <p className="text-zinc-600 text-sm mt-1">Upload documents to get started</p>
-                </div>
-            ) : (
-                <div className="divide-y divide-zinc-800">
-                    {documents.map((doc) => (
-                        <motion.div
-                            key={doc.id}
-                            className="p-4 flex items-center justify-between hover:bg-zinc-900/50 transition-colors"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.2 }}
+                <CardAction className="flex items-center gap-2">
+                    {staleCount > 0 && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleReprocess}
+                            disabled={busy}
                         >
-                            <div className="flex items-center gap-4 min-w-0 flex-1">
-                                <div className="w-10 h-10 bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                                    <FileText className="w-5 h-5 text-zinc-400" />
+                            {reprocessing ? (
+                                <Loader2 className="animate-spin" />
+                            ) : (
+                                <RotateCw />
+                            )}
+                            <span className="hidden sm:inline">
+                                Reprocess{' '}
+                                <span className="text-muted-foreground">
+                                    ({staleCount})
+                                </span>
+                            </span>
+                        </Button>
+                    )}
+
+                    <AlertDialog>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        disabled={busy || documents.length === 0}
+                                        aria-label="Clear all documents"
+                                        className="text-muted-foreground hover:text-destructive"
+                                    >
+                                        {clearingAll ? (
+                                            <Loader2 className="animate-spin" />
+                                        ) : (
+                                            <XCircle />
+                                        )}
+                                    </Button>
+                                </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent>Clear all</TooltipContent>
+                        </Tooltip>
+
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                    Delete all {documents.length} document
+                                    {documents.length === 1 ? '' : 's'}?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    This permanently removes every uploaded file and its
+                                    embeddings. Your chat history is kept, but answers
+                                    will no longer be able to cite these sources. This
+                                    cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={handleClearAll}
+                                    className="bg-destructive text-white hover:bg-destructive/90"
+                                >
+                                    Delete all
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={handleRefresh}
+                                disabled={busy}
+                                aria-label="Refresh document list"
+                                className="text-muted-foreground"
+                            >
+                                <RefreshCw className={refreshing ? 'animate-spin' : ''} />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Refresh</TooltipContent>
+                    </Tooltip>
+                </CardAction>
+            </CardHeader>
+
+            <CardContent className="px-0">
+                {loading ? (
+                    <div className="divide-y divide-border">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="flex items-center gap-4 px-6 py-4">
+                                <Skeleton className="size-10 rounded-md" />
+                                <div className="flex-1 space-y-2">
+                                    <Skeleton className="h-4 w-48" />
+                                    <Skeleton className="h-3 w-64" />
                                 </div>
+                                <Skeleton className="h-6 w-20 rounded-full" />
+                            </div>
+                        ))}
+                    </div>
+                ) : documents.length === 0 ? (
+                    <div className="flex flex-col items-center px-6 py-16 text-center">
+                        <div className="mb-4 flex size-12 items-center justify-center rounded-lg bg-muted">
+                            <FileText className="size-6 text-muted-foreground" />
+                        </div>
+                        <p className="font-medium">No documents yet</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Upload a file above to start building your knowledge base.
+                        </p>
+                    </div>
+                ) : (
+                    <ul className="divide-y divide-border">
+                        {documents.map(doc => (
+                            <li
+                                key={doc.id}
+                                className="group flex items-center gap-4 px-6 py-4 transition-colors hover:bg-muted/40"
+                            >
+                                <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
+                                    <FileText className="size-5 text-muted-foreground" />
+                                </div>
+
                                 <div className="min-w-0 flex-1">
-                                    <p className="font-medium truncate" title={doc.filename}>
+                                    <p className="truncate font-medium" title={doc.filename}>
                                         {doc.filename}
                                     </p>
-                                    <div className="flex items-center gap-3 text-sm text-zinc-500 mt-0.5">
-                                        <span>{formatFileSize(doc.file_size)}</span>
-                                        <span>•</span>
-                                        <span>{formatDate(doc.created_at)}</span>
-                                        <span>•</span>
-                                        <span className="flex items-center gap-1">
-                                            {getStatusIcon(doc.status)}
-                                            {getStatusText(doc.status)}
-                                        </span>
-                                    </div>
+                                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                                        {formatFileSize(doc.file_size)} ·{' '}
+                                        {formatDate(doc.created_at)}
+                                    </p>
                                 </div>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDelete(doc.id)}
-                                disabled={deleting === doc.id}
-                                className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 ml-4"
-                            >
-                                {deleting === doc.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                )}
-                            </Button>
-                        </motion.div>
-                    ))}
-                </div>
-            )}
 
-            {/* Clear All Confirmation Modal */}
-            {showClearModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    {/* Overlay */}
-                    <div
-                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                        onClick={() => setShowClearModal(false)}
-                    />
-                    {/* Modal */}
-                    <motion.div
-                        className="relative bg-zinc-900 border border-zinc-800 p-6 max-w-md w-full mx-4 shadow-2xl"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                    >
-                        <h3 className="text-lg font-bold text-white mb-2">Clear All Documents?</h3>
-                        <p className="text-zinc-400 text-sm mb-6">
-                            This will permanently delete all {documents.length} document{documents.length !== 1 ? 's' : ''} and their embeddings. This action cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <Button
-                                variant="ghost"
-                                onClick={() => setShowClearModal(false)}
-                                className="text-zinc-400 hover:text-white hover:bg-zinc-800"
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleClearAll}
-                                className="bg-red-600 hover:bg-red-700 text-white"
-                            >
-                                Delete All
-                            </Button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-        </div>
+                                <DocumentStatusBadge status={doc.status} />
+
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            onClick={() => handleDelete(doc.id, doc.filename)}
+                                            disabled={deleting === doc.id || busy}
+                                            aria-label={`Delete ${doc.filename}`}
+                                            className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 hover:text-destructive"
+                                        >
+                                            {deleting === doc.id ? (
+                                                <Loader2 className="animate-spin" />
+                                            ) : (
+                                                <Trash2 />
+                                            )}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Delete</TooltipContent>
+                                </Tooltip>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </CardContent>
+        </Card>
     )
 }

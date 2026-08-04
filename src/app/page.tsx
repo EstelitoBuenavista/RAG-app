@@ -1,123 +1,119 @@
 'use client'
 
 import Link from 'next/link'
+import { ArrowRight, FileText, Quote, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { motion, fadeInUp, staggerContainer, staggerItem, useMotionVariants } from '@/lib/motion'
+import { Brand } from '@/components/brand'
+import { motion, useReducedMotion } from '@/lib/motion'
+
+const features = [
+  {
+    icon: FileText,
+    title: 'Bring your documents',
+    body: 'PDFs, Word files, Markdown, and plain text are parsed, split, and indexed automatically.',
+  },
+  {
+    icon: Search,
+    title: 'Semantic retrieval',
+    body: 'Questions are matched against meaning rather than keywords, so the right passage surfaces even when the wording differs.',
+  },
+  {
+    icon: Quote,
+    title: 'Answers you can verify',
+    body: 'Every claim carries a numbered citation. Click it to read the exact passage the answer came from.',
+  },
+]
 
 export default function Home() {
-  const heroVariants = useMotionVariants(fadeInUp)
-  const containerVariants = useMotionVariants(staggerContainer)
-  const itemVariants = useMotionVariants(staggerItem)
+  const reduceMotion = useReducedMotion()
+
+  // Explicit props rather than named variants: a missing variant silently
+  // leaves elements stuck at their initial (invisible) state.
+  const rise = (delay: number) =>
+    reduceMotion
+      ? {}
+      : {
+        initial: { opacity: 0, y: 12 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.4, delay, ease: 'easeOut' as const },
+      }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-sm z-50">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-white text-zinc-950 flex items-center justify-center font-bold text-xl">
-              I
-            </div>
-            <span className="text-xl font-bold tracking-tight">Inkwell</span>
-          </div>
-          <div className="flex items-center space-x-3">
-            <Link href="/login">
-              <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-900">
-                Sign In
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-white text-zinc-950 hover:bg-zinc-200 font-medium">
-                Get Started
-              </Button>
-            </Link>
+    <div className="min-h-dvh">
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="app-container flex h-16 items-center justify-between">
+          <Brand size="sm" />
+          <div className="flex items-center gap-2">
+            <Button asChild variant="ghost">
+              <Link href="/login">Sign in</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/signup">Get started</Link>
+            </Button>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <main className="container mx-auto px-6 pt-32 pb-20">
-        <motion.div
-          className="max-w-4xl"
-          initial="hidden"
-          animate="visible"
-          variants={heroVariants}
+      <main className="app-container pt-32 pb-24 sm:pt-40">
+        <motion.p
+          {...rise(0)}
+          className="mb-6 inline-block rounded-full border border-border px-3 py-1 font-mono text-xs tracking-wider text-muted-foreground uppercase"
         >
-          {/* Badge */}
-          <motion.div
-            className="inline-block mb-8 px-3 py-1 border border-zinc-700 text-zinc-400 text-sm font-mono"
-            variants={heroVariants}
-          >
-            AI-POWERED
-          </motion.div>
+          Retrieval-augmented AI
+        </motion.p>
 
-          {/* Heading */}
-          <motion.h1
-            className="text-6xl md:text-8xl font-bold tracking-tight leading-none mb-8"
-            variants={heroVariants}
-          >
-            Transform
-            <br />
-            Documents
-            <br />
-            <span className="text-zinc-500">Into Knowledge</span>
-          </motion.h1>
+        <motion.h1
+          {...rise(0.05)}
+          className="max-w-4xl text-5xl font-bold tracking-tight sm:text-7xl lg:text-8xl"
+        >
+          Transform documents
+          <br />
+          <span className="text-muted-foreground">into knowledge</span>
+        </motion.h1>
 
-          {/* Description */}
-          <motion.p
-            className="text-xl text-zinc-400 max-w-xl mb-12 leading-relaxed"
-            variants={heroVariants}
-          >
-            Upload documents and get intelligent, context-aware answers using RAG technology.
-          </motion.p>
+        <motion.p
+          {...rise(0.1)}
+          className="mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground"
+        >
+          Upload your files and ask questions in plain language. Inkwell answers
+          only from what you gave it — and shows you exactly where each answer
+          came from.
+        </motion.p>
 
-          {/* CTA Buttons */}
-          <motion.div
-            className="flex flex-wrap gap-4"
-            variants={heroVariants}
-          >
+        <motion.div {...rise(0.15)} className="mt-10 flex flex-wrap gap-3">
+          <Button asChild size="lg" className="h-12 px-7 text-base">
             <Link href="/signup">
-              <Button
-                size="lg"
-                className="h-14 px-8 bg-white text-zinc-950 hover:bg-zinc-200 font-medium text-lg"
-              >
-                Start Free →
-              </Button>
+              Start free
+              <ArrowRight />
             </Link>
-          </motion.div>
+          </Button>
+          <Button asChild variant="outline" size="lg" className="h-12 px-7 text-base">
+            <Link href="/login">Sign in</Link>
+          </Button>
         </motion.div>
 
-        {/* Features */}
         <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-800 mt-32 border border-zinc-800"
-          initial="hidden"
-          animate="visible"
-          variants={containerVariants}
+          {...rise(0.25)}
+          className="mt-28 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:mt-36 md:grid-cols-3"
         >
-          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
-            <div className="text-3xl mb-4">📄</div>
-            <h3 className="text-lg font-bold mb-2">Document Upload</h3>
-            <p className="text-zinc-500 text-sm">
-              Upload PDFs, text files, and documents to build your knowledge base.
-            </p>
-          </motion.div>
-          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
-            <div className="text-3xl mb-4">🔍</div>
-            <h3 className="text-lg font-bold mb-2">Smart Search</h3>
-            <p className="text-zinc-500 text-sm">
-              Find relevant information with AI-powered semantic search.
-            </p>
-          </motion.div>
-          <motion.div className="bg-zinc-950 p-8" variants={itemVariants}>
-            <div className="text-3xl mb-4">💬</div>
-            <h3 className="text-lg font-bold mb-2">RAG Queries</h3>
-            <p className="text-zinc-500 text-sm">
-              Ask questions and get answers grounded in your documents.
-            </p>
-          </motion.div>
+          {features.map(({ icon: Icon, title, body }) => (
+            <div key={title} className="bg-background p-8">
+              <div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-secondary">
+                <Icon className="size-5" />
+              </div>
+              <h3 className="mb-2 font-bold">{title}</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">{body}</p>
+            </div>
+          ))}
         </motion.div>
       </main>
+
+      <footer className="border-t border-border">
+        <div className="app-container flex flex-wrap items-center justify-between gap-4 py-8 text-sm text-muted-foreground">
+          <Brand size="sm" />
+          <p>Answers grounded in your own documents.</p>
+        </div>
+      </footer>
     </div>
   )
 }
-

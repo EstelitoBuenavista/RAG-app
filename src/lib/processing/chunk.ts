@@ -1,5 +1,5 @@
 /**
- * Split text into overlapping chunks for embedding
+ * Split text into overlapping chunks for embedding.
  */
 export interface ChunkOptions {
     chunkSize?: number      // Target size in characters
@@ -13,11 +13,26 @@ export interface TextChunk {
     endChar: number
 }
 
+/**
+ * Defaults are sized for `gemini-embedding-2`, whose 8,192-token window leaves
+ * plenty of headroom. ~1500 characters keeps a chunk topically focused (so its
+ * vector stays sharp) while still carrying enough context to stand alone, and
+ * matches the Unstructured.io chunk size so both paths behave alike.
+ */
+const DEFAULT_CHUNK_SIZE = 1500
+const DEFAULT_CHUNK_OVERLAP = 250
+
 export function chunkText(
     text: string,
     options: ChunkOptions = {}
 ): TextChunk[] {
-    const { chunkSize = 1000, chunkOverlap = 200 } = options
+    const {
+        chunkSize = DEFAULT_CHUNK_SIZE,
+        chunkOverlap = DEFAULT_CHUNK_OVERLAP,
+    } = options
+
+    // Overlap must leave forward progress, or the loop below never terminates.
+    const overlap = Math.min(chunkOverlap, Math.floor(chunkSize / 2))
 
     const chunks: TextChunk[] = []
     let startIndex = 0
@@ -26,14 +41,12 @@ export function chunkText(
     while (startIndex < text.length) {
         let endIndex = startIndex + chunkSize
 
-        // Try to break at a sentence or word boundary
+        // Prefer breaking on a sentence, then a word, rather than mid-token.
         if (endIndex < text.length) {
-            // Look for sentence end
             const sentenceEnd = text.lastIndexOf('. ', endIndex)
             if (sentenceEnd > startIndex + chunkSize / 2) {
                 endIndex = sentenceEnd + 1
             } else {
-                // Look for word boundary
                 const wordEnd = text.lastIndexOf(' ', endIndex)
                 if (wordEnd > startIndex + chunkSize / 2) {
                     endIndex = wordEnd
@@ -53,32 +66,11 @@ export function chunkText(
             chunkIndex++
         }
 
-        // Move to next chunk with overlap
-        startIndex = endIndex - chunkOverlap
+        const nextStart = endIndex - overlap
+        // Guard against a pathological boundary that fails to advance.
+        startIndex = nextStart > startIndex ? nextStart : endIndex
         if (startIndex >= text.length) break
     }
 
     return chunks
-}
-
-/**
- * Simple text extraction from common file types
- * For production, use dedicated parsers for PDF, DOCX etc.
- */
-export function extractTextFromFile(
-    content: string | ArrayBuffer,
-    mimeType: string
-): string {
-    // For now, handle plain text only
-    // TODO: Add PDF parsing with pdf-parse
-    // TODO: Add DOCX parsing with mammoth
-
-    if (mimeType.includes('text/') || mimeType.includes('markdown')) {
-        if (typeof content === 'string') {
-            return content
-        }
-        return new TextDecoder().decode(content)
-    }
-
-    throw new Error(`Unsupported file type: ${mimeType}`)
 }

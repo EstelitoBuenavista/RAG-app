@@ -1,11 +1,43 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import { ArrowRight, Database, FileText, MessagesSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { signout } from '@/app/auth/actions'
+import { AppHeader } from '@/components/app-header'
 import { DocumentUpload } from '@/components/document-upload'
 import { DocumentList } from '@/components/document-list'
 import { Button } from '@/components/ui/button'
-import { UserMenu } from '@/components/user-menu'
-import Link from 'next/link'
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card'
+
+interface StatProps {
+    label: string
+    value: number
+    hint: string
+    icon: typeof FileText
+}
+
+function Stat({ label, value, hint, icon: Icon }: StatProps) {
+    return (
+        <div className="flex flex-col gap-1 p-5">
+            <div className="flex items-center gap-2 text-muted-foreground">
+                <Icon className="size-4" />
+                <span className="text-xs font-medium tracking-wide uppercase">
+                    {label}
+                </span>
+            </div>
+            <p className="text-3xl font-bold tabular-nums">
+                {value.toLocaleString()}
+            </p>
+            <p className="text-xs text-muted-foreground">{hint}</p>
+        </div>
+    )
+}
 
 export default async function DashboardPage() {
     const supabase = await createClient()
@@ -15,13 +47,11 @@ export default async function DashboardPage() {
         redirect('/login')
     }
 
-    // Fetch document count for this user
     const { count: documentCount } = await supabase
         .from('documents')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
 
-    // Fetch embedding count for this user's documents
     const { data: userDocIds } = await supabase
         .from('documents')
         .select('id')
@@ -29,15 +59,13 @@ export default async function DashboardPage() {
 
     let embeddingCount = 0
     if (userDocIds && userDocIds.length > 0) {
-        const docIds = userDocIds.map(d => d.id)
         const { count } = await supabase
             .from('embeddings')
             .select('*', { count: 'exact', head: true })
-            .in('document_id', docIds)
+            .in('document_id', userDocIds.map(d => d.id))
         embeddingCount = count ?? 0
     }
 
-    // Fetch user's chats to count queries (user messages)
     const { data: userChats } = await supabase
         .from('chats')
         .select('id')
@@ -45,84 +73,75 @@ export default async function DashboardPage() {
 
     let queryCount = 0
     if (userChats && userChats.length > 0) {
-        const chatIds = userChats.map(c => c.id)
         const { count } = await supabase
             .from('messages')
             .select('*', { count: 'exact', head: true })
-            .in('chat_id', chatIds)
+            .in('chat_id', userChats.map(c => c.id))
             .eq('role', 'user')
         queryCount = count ?? 0
     }
 
     return (
-        <div className="min-h-screen bg-zinc-950 text-white">
-            {/* Header */}
-            <header className="border-b border-zinc-800 bg-zinc-950 sticky top-0 z-50">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-6">
-                        <div className="flex items-center space-x-3">
-                            <div className="w-9 h-9 bg-white text-zinc-950 flex items-center justify-center font-bold text-lg">
-                                I
-                            </div>
-                            <span className="text-xl font-bold tracking-tight">Inkwell</span>
-                        </div>
-                        <nav className="flex items-center space-x-1">
-                            <Link href="/dashboard">
-                                <Button variant="ghost" className="text-white bg-zinc-900 rounded-none">
-                                    Dashboard
-                                </Button>
-                            </Link>
-                            <Link href="/chat">
-                                <Button variant="ghost" className="text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-none">
-                                    Chat
-                                </Button>
-                            </Link>
-                        </nav>
-                    </div>
-                    <UserMenu email={user.email || ''} signoutAction={signout} />
-                </div>
-            </header>
+        <div className="min-h-dvh">
+            <AppHeader email={user.email || ''} signoutAction={signout} />
 
-            {/* Main Content */}
-            <main className="container mx-auto px-6 py-12">
-                <div className="mb-12">
-                    <h1 className="text-4xl font-bold tracking-tight mb-2">Dashboard</h1>
-                    <p className="text-zinc-500">Upload and manage your documents for RAG processing</p>
+            <main className="app-container py-8 sm:py-12">
+                <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                            Dashboard
+                        </h1>
+                        <p className="mt-1 text-muted-foreground">
+                            Upload documents and manage your knowledge base.
+                        </p>
+                    </div>
+
+                    <Button asChild variant="outline">
+                        <Link href="/chat">
+                            <MessagesSquare />
+                            Go to chat
+                            <ArrowRight />
+                        </Link>
+                    </Button>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-2">
-                    {/* Document Upload */}
                     <DocumentUpload />
 
-                    {/* Quick Stats */}
-                    <div className="border border-zinc-800">
-                        <div className="border-b border-zinc-800 p-6">
-                            <h2 className="text-lg font-bold">Quick Stats</h2>
-                            <p className="text-zinc-500 text-sm mt-1">Overview of your RAG application</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-px bg-zinc-800">
-                            <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">{documentCount ?? 0}</p>
-                                <p className="text-sm text-zinc-500 mt-1">Documents</p>
+                    <Card className="flex flex-col">
+                        <CardHeader className="border-b [.border-b]:pb-6">
+                            <CardTitle>Knowledge base</CardTitle>
+                            <CardDescription>
+                                What Inkwell can currently draw on when answering.
+                            </CardDescription>
+                        </CardHeader>
+
+                        <CardContent className="flex-1 px-0">
+                            <div className="grid h-full grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                                <Stat
+                                    label="Documents"
+                                    value={documentCount ?? 0}
+                                    hint="Files uploaded"
+                                    icon={FileText}
+                                />
+                                <Stat
+                                    label="Chunks"
+                                    value={embeddingCount}
+                                    hint="Indexed passages"
+                                    icon={Database}
+                                />
+                                <Stat
+                                    label="Questions"
+                                    value={queryCount}
+                                    hint="Asked so far"
+                                    icon={MessagesSquare}
+                                />
                             </div>
-                            <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">{embeddingCount}</p>
-                                <p className="text-sm text-zinc-500 mt-1">Embeddings</p>
-                            </div>
-                            <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold">{queryCount}</p>
-                                <p className="text-sm text-zinc-500 mt-1">Queries</p>
-                            </div>
-                            <div className="bg-zinc-950 p-6">
-                                <p className="text-3xl font-bold text-green-500">●</p>
-                                <p className="text-sm text-zinc-500 mt-1">Active</p>
-                            </div>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Document List */}
-                <div className="mt-8">
+                <div className="mt-6">
                     <DocumentList />
                 </div>
             </main>

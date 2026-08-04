@@ -115,8 +115,14 @@ export async function processWithUnstructured(
             partitionParameters.similarityThreshold = similarityThreshold
         }
 
+        // The parameters are assembled dynamically above, so they're widened to
+        // the SDK's own parameter type rather than `any`.
+        type PartitionParams = Parameters<
+            typeof client.general.partition
+        >[0]['partitionParameters']
+
         const response = await client.general.partition({
-            partitionParameters: partitionParameters as any,
+            partitionParameters: partitionParameters as unknown as PartitionParams,
         })
 
         // The SDK returns elements directly or throws on error

@@ -1,7 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { User } from 'lucide-react'
+import { LogOut, User } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface UserMenuProps {
     email: string
@@ -9,46 +17,39 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ email, signoutAction }: UserMenuProps) {
-    const [isOpen, setIsOpen] = useState(false)
-    const menuRef = useRef<HTMLDivElement>(null)
-
-    // Close menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside)
-        return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
-
     return (
-        <div className="relative" ref={menuRef}>
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                title={email}
-            >
-                <User className="w-5 h-5" />
-            </button>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Account menu for ${email}`}
+                >
+                    <User className="size-4" />
+                </Button>
+            </DropdownMenuTrigger>
 
-            {isOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-900 border border-zinc-800 shadow-lg z-50">
-                    <div className="px-4 py-3 border-b border-zinc-800">
-                        <p className="text-xs text-zinc-500">Signed in as</p>
-                        <p className="text-sm text-zinc-300 truncate">{email}</p>
-                    </div>
-                    <form action={signoutAction}>
-                        <button
-                            type="submit"
-                            className="w-full px-4 py-2 text-left text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
-                        >
-                            Sign Out
+            <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="font-normal">
+                    <span className="block text-xs text-muted-foreground">
+                        Signed in as
+                    </span>
+                    <span className="block truncate text-sm font-medium" title={email}>
+                        {email}
+                    </span>
+                </DropdownMenuLabel>
+
+                <DropdownMenuSeparator />
+
+                <form action={signoutAction}>
+                    <DropdownMenuItem asChild variant="destructive">
+                        <button type="submit" className="w-full cursor-pointer">
+                            <LogOut className="size-4" />
+                            Sign out
                         </button>
-                    </form>
-                </div>
-            )}
-        </div>
+                    </DropdownMenuItem>
+                </form>
+            </DropdownMenuContent>
+        </DropdownMenu>
     )
 }
